@@ -29,10 +29,11 @@ import json
 import warnings
 from pathlib import Path
 
+from antlia.fx import DEFAULT_CURRENCIES, RateTable
+
 from pictor.accounts import AccountOverview
 from pictor.charts.gantt import DECISION_ZONE_DAYS
 from pictor.enrichment import enrich_tickers
-from pictor.fx import DEFAULT_CURRENCIES, RateTable
 from pictor.models import Spread
 
 #: How many holdings the Accounts card lists before it stops. A presentation

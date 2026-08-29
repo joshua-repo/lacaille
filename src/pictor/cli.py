@@ -10,9 +10,11 @@ from typing import Annotated
 
 import typer
 
+from antlia.auth.errors import AuthError
+from antlia.fx import DEFAULT_CURRENCIES, rates as fx_rates
+
 from pictor.accounts import fetch_overview, fetch_overviews
 from pictor.charts import build_calendar_html, build_chart
-from pictor.fx import DEFAULT_CURRENCIES, fetch_rates
 from pictor.pairing import pair_spreads
 
 app = typer.Typer(help="Pictor: visualization layer for option spread positions.")
@@ -91,10 +93,17 @@ def calendar(
     if fx and any(o.ok for o in overviews):
         held = {o.currency for o in overviews if o.ok and o.currency}
         held |= {h.currency for o in overviews if o.ok for h in o.holdings if h.currency}
-        rates = fetch_rates(tuple(dict.fromkeys((*DEFAULT_CURRENCIES, *sorted(held)))))
-        if rates is None:
+        try:
+            rates = fx_rates(tuple(dict.fromkeys((*DEFAULT_CURRENCIES, *sorted(held)))))
+        except AuthError:
+            # antlia raises when it has no table at all, which is right for a
+            # library -- "I could not answer" is not "the answer is nothing".
+            # A dashboard's policy is the opposite: a page without a currency
+            # picker is still a page, so the failure stops here. Narrowed to
+            # AuthError (RatesUnavailable subclasses it) rather than bare
+            # Exception, so a real bug in antlia still surfaces.
             typer.echo("warning: no exchange rates available -- accounts stay in their own currencies", err=True)
-        elif rates.stale:
+        if rates is not None and rates.stale:
             typer.echo(f"warning: using stale {rates.source} rates from {rates.as_of:%Y-%m-%d %H:%M}", err=True)
 
     spreads = pair_spreads(legs)
