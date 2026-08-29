@@ -1,6 +1,6 @@
 """Parsing IBKR contract descriptions into legs, and pairing legs into
 vertical spreads. Decoupled from any particular data source -- feed it
-OptionLeg objects from IBKR MCP, ib_insync, a local JSON dump, whatever.
+OptionLeg objects from antlia, IBKR MCP, a local JSON dump, whatever.
 """
 
 from __future__ import annotations

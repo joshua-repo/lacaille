@@ -8,7 +8,7 @@ import datetime as dt
 
 import plotly.graph_objects as go
 
-from pictor.enrichment import NEWS_LOOKBACK_DAYS, get_earnings_date, has_recent_news
+from pictor.enrichment import NEWS_LOOKBACK_DAYS, enrich_tickers
 from pictor.models import Spread
 
 # Per-ticker decision zone thresholds, in days-to-expiry. Anything without an
@@ -35,6 +35,7 @@ def build_chart(
     decision_zone_days = decision_zone_days or DECISION_ZONE_DAYS
     spreads = sorted(spreads, key=lambda s: (s.expiry - today).days)
     labels = [s.label for s in spreads]
+    enrichment = enrich_tickers([s.underlying for s in spreads])
 
     fig = go.Figure()
 
@@ -42,9 +43,9 @@ def build_chart(
         dte = (s.expiry - today).days
         color = GAIN_COLOR if s.unrealized_pnl >= 0 else LOSS_COLOR
 
-        earnings = get_earnings_date(s.underlying)
+        earnings = enrichment[s.underlying].earnings_date
         flagged = earnings is not None and today <= earnings <= s.expiry
-        news = has_recent_news(s.underlying)
+        news = enrichment[s.underlying].news
 
         hover = (
             f"<b>{s.label}</b><br>"

@@ -8,10 +8,14 @@ dependencies = [
     "plotly>=5.24",
     "yfinance>=0.2",
     "typer>=0.12",
+    # The only position source pictor's CLI has (no demo fallback) -- core,
+    # not optional, so a plain `uv sync` can't silently strip it back out.
+    # Extras: IBKR for options, Trading212 for the equity account, and
+    # yfinance for `antlia.fx`'s primary rate source (its Frankfurter fallback
+    # is keyless stdlib and needs none). `develop` is antlia's default branch
+    # -- the `playground` branch this used to pin no longer exists upstream.
+    "antlia[ibkr,trading212,yfinance] @ git+https://github.com/joshua-repo/antlia.git@develop",
 ]
-
-[project.optional-dependencies]
-ibkr = ["ib_insync>=0.9.86"]
 
 [project.scripts]
 pictor = "pictor.cli:app"
@@ -19,6 +23,9 @@ pictor = "pictor.cli:app"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pictor"]
