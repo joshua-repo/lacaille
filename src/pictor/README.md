@@ -100,9 +100,9 @@ Or as a library:
 ```python
 from pictor import pair_spreads
 from pictor.charts import build_calendar_html, build_chart
-from pictor.sources import fetch_positions_live
+from pictor.accounts import fetch_overview
 
-legs = fetch_positions_live(profile="live")
+legs = fetch_overview("ibkr", profile="live").option_legs
 spreads = pair_spreads(legs)
 
 open("calendar.html", "w").write(build_calendar_html(spreads))
@@ -111,5 +111,5 @@ build_chart(spreads).write_html("gantt.html")
 
 `pair_spreads` and the chart builders take plain `OptionLeg`/`Spread`
 objects, so a caller that already has positions from elsewhere (IBKR MCP,
-Vela, a backtest) can skip `pictor.sources` entirely -- see
+Vela, a backtest) can skip `pictor.accounts` entirely -- see
 [skills/pictor-gantt/SKILL.md](skills/pictor-gantt/SKILL.md) for that path.

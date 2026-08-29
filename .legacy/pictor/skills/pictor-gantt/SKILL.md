@@ -95,7 +95,7 @@ TWS/Gateway connection or antlia setup needed. In that case, don't use
 4. Call `pictor.charts.build_calendar_html(spreads)` (or `build_chart` for
    the standalone Gantt) and write the result to a file.
 
-This is exactly what `pictor.sources.antlia_live.fetch_positions_live` does
+This is exactly what `pictor.accounts.fetch_overview(...).option_legs` does
 against antlia -- swap the data source, keep the rest of the pipeline; both
 end up as the same `list[OptionLeg]`.
 

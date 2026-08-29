@@ -35,6 +35,10 @@ from pictor.enrichment import enrich_tickers
 from pictor.fx import DEFAULT_CURRENCIES, RateTable
 from pictor.models import Spread
 
+#: How many holdings the Accounts card lists before it stops. A presentation
+#: limit, which is why it lives here and not on the overview itself.
+TOP_HOLDINGS = 12
+
 #: What to call each broker in the UI. A source key is a config name, not a
 #: label to put in front of someone.
 BROKER_LABELS = {"ibkr": "Interactive Brokers", "trading212": "Trading 212"}
@@ -125,7 +129,7 @@ def _account_data(overview: AccountOverview) -> dict:
                 "baseCurrency": h.base_currency or overview.currency,
                 "unrealizedPnl": h.unrealized_pnl,
             }
-            for h in overview.holdings
+            for h in overview.holdings[:TOP_HOLDINGS]
         ],
         "unavailable": overview.unavailable,
     }

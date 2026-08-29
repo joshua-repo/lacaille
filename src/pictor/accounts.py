@@ -34,10 +34,6 @@ from pictor.models import EquityPosition, OptionLeg
 #: IBKR is where the options live; Trading212 is cash equity only.
 DEFAULT_ACCOUNTS: tuple[tuple[str, str], ...] = (("ibkr", "live"), ("trading212", "live"))
 
-#: How many holdings the view lists per account before it stops.
-TOP_HOLDINGS = 12
-
-
 @dataclass
 class CurrencyRow:
     """One currency inside a multi-currency account.
@@ -206,7 +202,10 @@ def fetch_overview(source: str, profile: str = "live") -> AccountOverview:
             for b in snap.balances
             if b.currency != BASE
         ],
-        holdings=holdings[:TOP_HOLDINGS],
+        # Every holding, ranked. How many of them a view shows is that view's
+        # decision, not this layer's -- capping here silently shortened
+        # `pictor positions` to 12 of 16 lines.
+        holdings=holdings,
         option_legs=legs,
         unavailable=list(snap.vendor.get("unavailable") or ()),
     )

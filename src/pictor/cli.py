@@ -10,7 +10,7 @@ from typing import Annotated
 
 import typer
 
-from pictor.accounts import fetch_overviews
+from pictor.accounts import fetch_overview, fetch_overviews
 from pictor.charts import build_calendar_html, build_chart
 from pictor.fx import DEFAULT_CURRENCIES, fetch_rates
 from pictor.pairing import pair_spreads
@@ -24,9 +24,20 @@ def _main() -> None:
 
 
 def _fetch_legs(profile: str):
-    from pictor.sources import fetch_positions_live
+    """IBKR's option legs, or a clean exit saying why they could not be read.
 
-    return fetch_positions_live(profile=profile)
+    `fetch_overview` reports a dead broker as a value rather than raising,
+    because the dashboard renders around one missing account. The Gantt chart
+    has no such fallback -- it *is* the option book -- so the single-source
+    commands turn that value back into a failure here. Where the error becomes
+    fatal is the caller's decision, which is why it lives in the CLI and not in
+    `pictor.accounts`.
+    """
+    overview = fetch_overview("ibkr", profile)
+    if not overview.ok:
+        typer.echo(f"error: ibkr ({profile}) unreadable -- {overview.error}", err=True)
+        raise typer.Exit(1)
+    return overview.option_legs
 
 
 ProfileOption = Annotated[str, typer.Option(help="antlia IBKR profile to connect with: 'live' (default) or 'paper'.")]
@@ -110,17 +121,17 @@ def positions(
     to tell a credential/gateway problem apart from a charting one, since the
     charts only ever show IBKR's option book.
     """
-    from pictor.sources import fetch_equity_positions, fetch_option_legs
-
     names = ["ibkr", "trading212"] if source == "all" else [source]
     for name in names:
         typer.echo(f"\n{name} ({profile})")
-        try:
-            legs = fetch_option_legs(name, profile) if name == "ibkr" else []
-            shares = fetch_equity_positions(name, profile)
-        except Exception as exc:  # antlia raises per-vendor auth/connection errors
-            typer.echo(f"  unavailable -- {type(exc).__name__}: {exc}")
+        # One snapshot per broker, carrying both the options and the shares.
+        # Reading them separately meant two connections to the same gateway for
+        # data that arrives together.
+        overview = fetch_overview(name, profile)
+        if not overview.ok:
+            typer.echo(f"  unavailable -- {overview.error}")
             continue
+        legs, shares = overview.option_legs, overview.holdings
         for leg in legs:
             typer.echo(
                 f"  option  {leg.underlying:<6} {leg.expiry} {leg.strike:>8g}{leg.right}"
