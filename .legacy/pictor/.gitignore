@@ -4,3 +4,10 @@ __pycache__/
 .vscode/
 *.html
 CLAUDE.md
+
+# Front-end build: node_modules is disposable, web/dist is committed
+web/node_modules/
+# `*.html` above is meant for rendered dashboards dropped in the repo root; the
+# front end's source shell and its built artefact are source, so re-include them.
+!web/index.html
+!src/pictor/_web/index.html

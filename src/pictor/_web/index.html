@@ -1,0 +1,1516 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Spread expiry calendar</title>
+  <script type="module" crossorigin>(function polyfill() {
+  const relList = document.createElement("link").relList;
+  if (relList && relList.supports && relList.supports("modulepreload")) return;
+  for (const link of document.querySelectorAll('link[rel="modulepreload"]')) processPreload(link);
+  new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      if (mutation.type !== "childList") continue;
+      for (const node of mutation.addedNodes) if (node.tagName === "LINK" && node.rel === "modulepreload") processPreload(node);
+    }
+  }).observe(document, {
+    childList: true,
+    subtree: true
+  });
+  function getFetchOpts(link) {
+    const fetchOpts = {};
+    if (link.integrity) fetchOpts.integrity = link.integrity;
+    if (link.referrerPolicy) fetchOpts.referrerPolicy = link.referrerPolicy;
+    if (link.crossOrigin === "use-credentials") fetchOpts.credentials = "include";
+    else if (link.crossOrigin === "anonymous") fetchOpts.credentials = "omit";
+    else fetchOpts.credentials = "same-origin";
+    return fetchOpts;
+  }
+  function processPreload(link) {
+    if (link.ep) return;
+    link.ep = true;
+    const fetchOpts = getFetchOpts(link);
+    fetch(link.href, fetchOpts);
+  }
+})();
+const DATA = __PICTOR_DATA__;
+const FX = DATA.fx;
+const state = { view: "calendar", selected: /* @__PURE__ */ new Set(), display: DATA.fx && DATA.fx.currencies[0] || "native" };
+const TK_NEUTRAL = 4.5;
+const tkOffset = (n) => "translateY(calc(var(--tk-h) * " + -n + "))";
+const tkTarget = (d) => tkOffset(9 - d);
+const isDigit = (ch) => ch >= "0" && ch <= "9";
+function makeTicker(format, className) {
+  const el2 = document.createElement("span");
+  el2.className = "ticker" + (className ? " " + className : "");
+  let strips = [];
+  let shape = null;
+  let digits = [];
+  function shapeOf(text) {
+    return [...text].map((ch) => isDigit(ch) ? "#" : ch).join("");
+  }
+  function build(text) {
+    el2.innerHTML = "";
+    strips = [];
+    for (const ch of text) {
+      if (isDigit(ch)) {
+        const col = document.createElement("span");
+        col.className = "tk-col";
+        const strip = document.createElement("span");
+        strip.className = "tk-strip";
+        for (let d = 9; d >= 0; d--) {
+          const cell2 = document.createElement("span");
+          cell2.textContent = String(d);
+          strip.appendChild(cell2);
+        }
+        strip.style.transform = tkOffset(TK_NEUTRAL);
+        col.appendChild(strip);
+        el2.appendChild(col);
+        strips.push(strip);
+      } else {
+        const sep = document.createElement("span");
+        sep.className = "tk-sep";
+        sep.textContent = ch;
+        el2.appendChild(sep);
+      }
+    }
+  }
+  function applyTargets() {
+    digits.forEach((d, i) => {
+      if (strips[i]) strips[i].style.transform = tkTarget(d);
+    });
+  }
+  function set(value) {
+    const text = format(value);
+    digits = [...text].filter(isDigit).map(Number);
+    const next = shapeOf(text);
+    if (next !== shape) {
+      shape = next;
+      build(text);
+      requestAnimationFrame(() => requestAnimationFrame(applyTargets));
+    } else {
+      applyTargets();
+    }
+  }
+  function replay() {
+    for (const strip of strips) {
+      strip.style.transition = "none";
+      strip.style.transform = tkOffset(TK_NEUTRAL);
+    }
+    void el2.offsetHeight;
+    for (const strip of strips) strip.style.transition = "";
+    requestAnimationFrame(applyTargets);
+  }
+  return { el: el2, set, replay };
+}
+function el(tag, cls, text) {
+  const node = document.createElement(tag);
+  if (cls) node.className = cls;
+  if (text !== void 0) node.textContent = text;
+  return node;
+}
+function starIcon() {
+  const b = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  b.setAttribute("class", "star");
+  b.setAttribute("viewBox", "0 0 24 24");
+  b.setAttribute("fill", "currentColor");
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", "M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.9-6.3 3.9 1.7-7L2 9.2l7.1-.6z");
+  b.appendChild(path);
+  return b;
+}
+function toLocalIso(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return y + "-" + m + "-" + day;
+}
+const fmtMoney = (n) => (n < 0 ? "-$" : "+$") + Math.abs(n).toLocaleString(void 0, { maximumFractionDigits: 0 });
+const fmtDate = (iso) => {
+  const d = /* @__PURE__ */ new Date(iso + "T00:00:00");
+  return d.toLocaleDateString(void 0, { month: "short", day: "numeric" });
+};
+const int0 = (v) => Math.round(v).toLocaleString();
+const pct1 = (v) => (v * 100).toFixed(1) + "%";
+const DASH = "—";
+function fmtCcy(value, currency) {
+  return value.toLocaleString(void 0, { style: "currency", currency, maximumFractionDigits: 0 });
+}
+function convert(amount, frm, to) {
+  if (amount === null || amount === void 0) return null;
+  if (frm === to) return amount;
+  if (!FX) return null;
+  const from = FX.rates[frm], into = FX.rates[to];
+  if (!from || into === void 0) return null;
+  return amount / from * into;
+}
+const fxNodes = [];
+function refreshFx() {
+  for (const update of fxNodes) update();
+}
+const acctTickers = [];
+function moneyFigure(value, currency, cls) {
+  if (value === null || value === void 0) return el("span", "value-sm" + (cls ? " " + cls : ""), DASH);
+  let shown = currency;
+  const ticker = makeTicker((v) => fmtCcy(v, shown), "value-sm" + (cls ? " " + cls : ""));
+  acctTickers.push(ticker);
+  fxNodes.push(() => {
+    const converted = state.display === "native" ? null : convert(value, currency, state.display);
+    shown = converted === null ? currency : state.display;
+    ticker.set(converted === null ? value : converted);
+  });
+  return ticker.el;
+}
+function moneyText(node, prefix, value, currency) {
+  fxNodes.push(() => {
+    if (value === null || value === void 0) {
+      node.textContent = "";
+      return;
+    }
+    const converted = state.display === "native" ? null : convert(value, currency, state.display);
+    node.textContent = prefix + fmtCcy(converted === null ? value : converted, converted === null ? currency : state.display);
+  });
+  return node;
+}
+function cell(label, node, sub, extra) {
+  const div = el("div", "cell" + (extra ? " " + extra : ""));
+  div.appendChild(el("div", "label", label));
+  div.appendChild(node);
+  if (sub) div.appendChild(typeof sub === "string" ? el("div", "sub", sub) : sub);
+  return div;
+}
+function figure(value, format, cls) {
+  if (value === null || value === void 0) return el("span", "value-sm", DASH);
+  const ticker = makeTicker(format, "value-sm");
+  acctTickers.push(ticker);
+  ticker.set(value);
+  return ticker.el;
+}
+function currencyPicker() {
+  const wrap = el("div", "fx-pick");
+  wrap.appendChild(el("span", "fl", "Show in"));
+  const options = [...FX.currencies, "native"];
+  for (const code of options) {
+    const button = el("button", "pill" + (code === state.display ? " active" : ""), code === "native" ? "Native" : code);
+    button.dataset.ccy = code;
+    button.addEventListener("click", () => {
+      state.display = code;
+      wrap.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b === button));
+      refreshFx();
+    });
+    wrap.appendChild(button);
+  }
+  return wrap;
+}
+function buildTotalCard(accounts) {
+  const readable = accounts.filter((a) => a.ok);
+  if (!FX || readable.length < 2) return null;
+  const card = el("section", "acct total");
+  const head = el("div", "acct-hd");
+  const left = el("div");
+  left.appendChild(el("h2", null, "All accounts"));
+  const meta = el("div", "acct-meta");
+  left.appendChild(meta);
+  head.appendChild(left);
+  card.appendChild(head);
+  const totalIn = () => state.display === "native" ? FX.base : state.display;
+  fxNodes.push(() => {
+    meta.textContent = readable.length + " accounts · " + readable.map((a) => a.currency).join(" + ") + " · totalled in " + totalIn() + (state.display === "native" ? " (pivot currency)" : "");
+  });
+  const sum = (pick) => () => {
+    let total = 0;
+    for (const a of readable) {
+      const converted = convert(pick(a), a.currency, totalIn());
+      if (converted === null) return null;
+      total += converted;
+    }
+    return total;
+  };
+  const body = el("div", "acct-body");
+  const totalCell = (label, pick, colour) => {
+    let shown = FX.base;
+    const ticker = makeTicker((v) => fmtCcy(v, shown), "value-sm" + (label === "Net liquidation" ? " tk-lg" : ""));
+    acctTickers.push(ticker);
+    fxNodes.push(() => {
+      const total = sum(pick)();
+      shown = totalIn();
+      if (total === null) {
+        ticker.el.textContent = DASH;
+        return;
+      }
+      ticker.set(total);
+      if (colour) {
+        ticker.el.classList.toggle("good", total >= 0);
+        ticker.el.classList.toggle("critical", total < 0);
+      }
+    });
+    return ticker.el;
+  };
+  body.appendChild(cell("Net liquidation", totalCell("Net liquidation", (a) => a.netLiquidation), null, "hero"));
+  body.appendChild(cell("Cash", totalCell("Cash", (a) => a.cash)));
+  body.appendChild(cell("Unrealized P&L", totalCell("P&L", (a) => a.unrealizedPnl, true)));
+  card.appendChild(body);
+  const rows = el("div", "acct-rows");
+  rows.appendChild(el("h3", null, "Contribution"));
+  for (const a of readable) {
+    const row = el("div", "hold");
+    const name = el("div");
+    name.appendChild(el("div", "sym", a.label));
+    name.appendChild(el("div", "qty", a.account));
+    const track = el("div", "track");
+    const bar = document.createElement("i");
+    track.appendChild(bar);
+    const amt = el("div");
+    const main = el("div", "amt");
+    const native = el("div", "qty");
+    amt.append(main, native);
+    fxNodes.push(() => {
+      const target = totalIn();
+      const converted = convert(a.netLiquidation, a.currency, target);
+      const total = sum((x) => x.netLiquidation)();
+      main.textContent = converted === null ? DASH : fmtCcy(converted, target);
+      native.textContent = a.currency === target || a.netLiquidation === null ? "" : fmtCcy(a.netLiquidation, a.currency);
+      bar.style.width = (total && converted !== null ? Math.abs(converted / total) * 100 : 0) + "%";
+    });
+    row.append(name, track, amt);
+    rows.appendChild(row);
+  }
+  const note = el("div", "note" + (FX.stale ? " warn" : ""));
+  const stamp = new Date(FX.asOf);
+  const when = stamp.getHours() === 0 && stamp.getMinutes() === 0 ? stamp.toLocaleDateString(void 0, { dateStyle: "medium" }) : stamp.toLocaleString(void 0, { dateStyle: "medium", timeStyle: "short" });
+  note.textContent = (FX.stale ? "STALE RATES — every live source failed; last known table from " : "Converted at " + FX.source + " rates, ") + when + ". P&L restated this way moves with the exchange rate as well as with the positions.";
+  rows.appendChild(note);
+  card.appendChild(rows);
+  return card;
+}
+function buildAccountCard(a) {
+  const card = el("section", "acct" + (a.ok ? "" : " failed"));
+  const head = el("div", "acct-hd");
+  const left = el("div");
+  left.appendChild(el("h2", null, a.label));
+  const bits = [a.account || a.source, a.profile];
+  if (a.asOf) bits.push("as of " + new Date(a.asOf).toLocaleTimeString(void 0, { hour: "2-digit", minute: "2-digit" }));
+  left.appendChild(el("div", "acct-meta", bits.filter(Boolean).join("  ·  ")));
+  head.appendChild(left);
+  if (a.ok && a.currency) {
+    const tag = el("span", "acct-tag");
+    fxNodes.push(() => {
+      const target = state.display === "native" ? a.currency : state.display;
+      tag.textContent = target === a.currency || !FX ? a.currency : a.currency + " → " + target;
+    });
+    head.appendChild(tag);
+  }
+  card.appendChild(head);
+  if (!a.ok) {
+    card.appendChild(el("div", "err", a.error));
+    return card;
+  }
+  const body = el("div", "acct-body");
+  body.appendChild(cell("Net liquidation", moneyFigure(a.netLiquidation, a.currency, "tk-lg"), null, "hero"));
+  body.appendChild(cell(
+    "Cash",
+    moneyFigure(a.cash, a.currency, a.cash !== null && a.cash < 0 ? "critical" : null),
+    a.cash !== null && a.cash < 0 ? "borrowed against the account" : null
+  ));
+  body.appendChild(cell(
+    "Unrealized P&L",
+    moneyFigure(a.unrealizedPnl, a.currency, a.unrealizedPnl === null ? null : a.unrealizedPnl >= 0 ? "good" : "critical")
+  ));
+  if (a.optionCount === 0 && a.equityCount > 0) {
+    body.appendChild(cell("Share lines", figure(a.equityCount, int0), "no options in this account"));
+  } else {
+    body.appendChild(cell(
+      "Option legs",
+      figure(a.optionCount, int0),
+      a.equityCount + (a.equityCount === 1 ? " share line" : " share lines")
+    ));
+  }
+  if (a.margin) {
+    const m = a.margin;
+    const used = cell(
+      "Margin used",
+      figure(m.utilisation, pct1),
+      m.maintenance === null ? null : moneyText(el("div", "sub"), "maintenance ", m.maintenance, a.currency)
+    );
+    if (m.utilisation !== null) {
+      const level = m.utilisation >= 0.8 ? " crit" : m.utilisation >= 0.5 ? " warn" : "";
+      const meter = el("div", "meter" + level);
+      const fill = el("span");
+      fill.style.width = Math.min(100, Math.max(0, m.utilisation * 100)) + "%";
+      meter.appendChild(fill);
+      used.appendChild(meter);
+    }
+    body.appendChild(used);
+    body.appendChild(cell(
+      "Excess liquidity",
+      moneyFigure(m.excess, a.currency),
+      m.cushion === null ? null : "cushion " + pct1(m.cushion)
+    ));
+    body.appendChild(cell("Buying power", moneyFigure(m.buyingPower, a.currency)));
+  } else {
+    body.appendChild(cell("Account type", el("span", "value-sm", "Cash"), "no margin reported"));
+  }
+  card.appendChild(body);
+  if (a.holdings.length) {
+    const rows = el("div", "acct-rows");
+    rows.appendChild(el("h3", null, "Top holdings"));
+    const peak = Math.max(...a.holdings.map((h) => Math.abs(h.baseValue || 0)), 1);
+    for (const h of a.holdings) {
+      const row = el("div", "hold");
+      const name = el("div");
+      name.appendChild(el("div", "sym", h.symbol));
+      name.appendChild(el("div", "qty", h.quantity.toLocaleString() + (Math.abs(h.quantity) === 1 ? " share" : " shares")));
+      const track = el("div", "track");
+      const bar = document.createElement("i");
+      bar.style.width = Math.abs(h.baseValue || 0) / peak * 100 + "%";
+      track.appendChild(bar);
+      const amt = el("div");
+      amt.appendChild(el("div", "amt", h.marketValue === null ? DASH : fmtCcy(h.marketValue, h.currency || a.currency)));
+      const converted = el("div", "qty");
+      fxNodes.push(() => {
+        const target = state.display === "native" ? h.baseCurrency : state.display;
+        const value = convert(h.marketValue, h.currency || a.currency, target);
+        converted.textContent = value === null || target === (h.currency || a.currency) ? "" : "≈ " + fmtCcy(value, target);
+      });
+      amt.appendChild(converted);
+      row.append(name, track, amt);
+      rows.appendChild(row);
+    }
+    card.appendChild(rows);
+  }
+  if (a.currencies.length > 1) {
+    const rows = el("div", "acct-rows");
+    rows.appendChild(el("h3", null, "Currencies"));
+    for (const cur of a.currencies) {
+      const row = el("div", "ccy-row");
+      row.appendChild(el("b", null, cur.currency));
+      if (cur.cash !== null) row.appendChild(el("span", null, "cash " + fmtCcy(cur.cash, cur.currency)));
+      if (cur.netLiquidation !== null) row.appendChild(el("span", null, "net liq " + fmtCcy(cur.netLiquidation, cur.currency)));
+      if (cur.rate !== null && cur.currency !== a.currency) {
+        row.appendChild(el("span", null, "1 " + cur.currency + " = " + cur.rate.toPrecision(4) + " " + a.currency + " (broker)"));
+      }
+      rows.appendChild(row);
+    }
+    card.appendChild(rows);
+  }
+  if (a.unavailable.length) {
+    const note = el("div", "acct-rows");
+    note.appendChild(el("div", "note", "Not permitted by this key: " + a.unavailable.join("; ")));
+    card.appendChild(note);
+  }
+  return card;
+}
+function buildAccounts() {
+  const root = document.getElementById("accountsView");
+  if (!DATA.accounts.length) return;
+  root.innerHTML = "";
+  acctTickers.length = 0;
+  fxNodes.length = 0;
+  if (FX) root.appendChild(currencyPicker());
+  const total = buildTotalCard(DATA.accounts);
+  if (total) root.appendChild(total);
+  for (const a of DATA.accounts) root.appendChild(buildAccountCard(a));
+  refreshFx();
+}
+const tooltipEl = document.getElementById("tooltip");
+function showTooltip(e, c) {
+  tooltipEl.innerHTML = "";
+  const title = document.createElement("div");
+  title.innerHTML = "<b></b>";
+  title.querySelector("b").textContent = c.label;
+  tooltipEl.appendChild(title);
+  const rows = [
+    ["Expiry", fmtDate(c.expiry) + " (" + c.dte + "d)"],
+    ["Unrealized P&L", fmtMoney(c.pnl)]
+  ];
+  if (c.inDecisionZone) rows.push(["Decision zone", "within " + c.zoneDays + "d of expiry"]);
+  if (c.earningsFlag) rows.push(["Earnings", fmtDate(c.earningsDate) + " (before expiry)"]);
+  if (c.news) rows.push(["News", "recent headline"]);
+  for (const [k, v] of rows) {
+    const row = document.createElement("div");
+    row.className = "row";
+    const kEl = document.createElement("span");
+    kEl.textContent = k;
+    const vEl = document.createElement("b");
+    vEl.textContent = v;
+    row.append(kEl, vEl);
+    tooltipEl.appendChild(row);
+  }
+  tooltipEl.classList.add("show");
+  positionTooltip(e);
+}
+function positionTooltip(e) {
+  const pad = 14;
+  let x = e.clientX + pad;
+  let y = e.clientY + pad;
+  const rect = tooltipEl.getBoundingClientRect();
+  if (x + rect.width > window.innerWidth) x = e.clientX - rect.width - pad;
+  if (y + rect.height > window.innerHeight) y = e.clientY - rect.height - pad;
+  tooltipEl.style.left = x + "px";
+  tooltipEl.style.top = y + "px";
+}
+function hideTooltip() {
+  tooltipEl.classList.remove("show");
+}
+function wireHover(el2, c) {
+  el2.addEventListener("pointerenter", (e) => showTooltip(e, c));
+  el2.addEventListener("pointermove", (e) => positionTooltip(e));
+  el2.addEventListener("pointerleave", hideTooltip);
+  el2.tabIndex = 0;
+  el2.addEventListener("focus", (e) => showTooltip(e, c));
+  el2.addEventListener("blur", hideTooltip);
+}
+function chipsByDate(chips) {
+  const map = {};
+  for (const c of chips) {
+    if (!map[c.expiry]) map[c.expiry] = [];
+    map[c.expiry].push(c);
+  }
+  return map;
+}
+function buildCalendar(chips) {
+  const root = document.getElementById("calendarView");
+  root.innerHTML = "";
+  if (chips.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "card cal-empty";
+    empty.textContent = "No spreads match this filter.";
+    root.appendChild(empty);
+    return;
+  }
+  const byDate = chipsByDate(chips);
+  const today = /* @__PURE__ */ new Date(DATA.today + "T00:00:00");
+  const todayIso = DATA.today;
+  const dates = chips.map((c) => /* @__PURE__ */ new Date(c.expiry + "T00:00:00"));
+  dates.push(today);
+  const minD = new Date(Math.min(...dates));
+  const maxD = new Date(Math.max(...dates));
+  const months = [];
+  let cursor = new Date(minD.getFullYear(), minD.getMonth(), 1);
+  const end = new Date(maxD.getFullYear(), maxD.getMonth(), 1);
+  while (cursor <= end) {
+    months.push(new Date(cursor));
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+  }
+  const grid = document.createElement("div");
+  grid.className = "months";
+  root.appendChild(grid);
+  for (const monthStart of months) {
+    const card = document.createElement("div");
+    card.className = "card";
+    const title = document.createElement("div");
+    title.className = "month-title";
+    title.textContent = monthStart.toLocaleDateString(void 0, { month: "long", year: "numeric" });
+    card.appendChild(title);
+    const weekdays = document.createElement("div");
+    weekdays.className = "weekdays";
+    for (const wd of ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]) {
+      const d = document.createElement("div");
+      d.textContent = wd;
+      weekdays.appendChild(d);
+    }
+    card.appendChild(weekdays);
+    const weeksEl = document.createElement("div");
+    weeksEl.className = "weeks";
+    const firstOfMonth = new Date(monthStart.getFullYear(), monthStart.getMonth(), 1);
+    const gridStart = new Date(firstOfMonth);
+    gridStart.setDate(gridStart.getDate() - gridStart.getDay());
+    const lastOfMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+    const gridEnd = new Date(lastOfMonth);
+    gridEnd.setDate(gridEnd.getDate() + (6 - gridEnd.getDay()));
+    let day = new Date(gridStart);
+    while (day <= gridEnd) {
+      const weekRow = document.createElement("div");
+      weekRow.className = "week-row";
+      for (let i = 0; i < 7; i++) {
+        const iso = toLocalIso(day);
+        const cell2 = document.createElement("div");
+        cell2.className = "day";
+        if (day.getMonth() !== monthStart.getMonth()) cell2.classList.add("outside");
+        if (iso === todayIso) cell2.classList.add("today");
+        const num = document.createElement("div");
+        num.className = "daynum";
+        num.textContent = day.getDate();
+        cell2.appendChild(num);
+        for (const c of byDate[iso] || []) {
+          cell2.appendChild(buildChip(c));
+        }
+        weekRow.appendChild(cell2);
+        day = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1);
+      }
+      weeksEl.appendChild(weekRow);
+    }
+    card.appendChild(weeksEl);
+    grid.appendChild(card);
+  }
+}
+function buildChip(c) {
+  const chip = document.createElement("div");
+  chip.className = "chip" + (c.gain ? "" : " loss") + (c.inDecisionZone ? " zone" : "");
+  const tk = document.createElement("div");
+  tk.className = "tk";
+  tk.textContent = c.underlying;
+  chip.appendChild(tk);
+  const strikes = document.createElement("div");
+  strikes.className = "strikes";
+  strikes.textContent = c.label.slice(c.underlying.length + 1) + " · " + c.dte + "d";
+  chip.appendChild(strikes);
+  if (c.earningsFlag || c.news) {
+    const badges = document.createElement("div");
+    badges.className = "badges";
+    if (c.earningsFlag) {
+      const b = document.createElement("div");
+      b.className = "diamond";
+      badges.appendChild(b);
+    }
+    if (c.news) {
+      badges.appendChild(starIcon());
+    }
+    chip.appendChild(badges);
+  }
+  wireHover(chip, c);
+  return chip;
+}
+function underlyings() {
+  return [...new Set(DATA.chips.map((c) => c.underlying))].sort();
+}
+function filteredChips() {
+  if (state.selected.size === 0) return DATA.chips;
+  return DATA.chips.filter((c) => state.selected.has(c.underlying));
+}
+function buildFilters(onChange) {
+  const root = document.getElementById("filters");
+  root.querySelectorAll(".pill").forEach((el2) => el2.remove());
+  const allPill = document.createElement("button");
+  allPill.className = "pill" + (state.selected.size === 0 ? " active" : "");
+  allPill.textContent = "All";
+  allPill.addEventListener("click", () => {
+    state.selected.clear();
+    onChange();
+  });
+  root.appendChild(allPill);
+  for (const tk of underlyings()) {
+    const pill = document.createElement("button");
+    pill.className = "pill" + (state.selected.has(tk) ? " active" : "");
+    pill.textContent = tk;
+    pill.addEventListener("click", () => {
+      if (state.selected.has(tk)) state.selected.delete(tk);
+      else state.selected.add(tk);
+      onChange();
+    });
+    root.appendChild(pill);
+  }
+}
+function buildGantt(chips) {
+  const root = document.getElementById("ganttView");
+  root.innerHTML = "";
+  if (chips.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "card gantt-empty";
+    empty.textContent = "No spreads match this filter.";
+    root.appendChild(empty);
+    return;
+  }
+  const sorted = [...chips].sort((a, b) => a.dte - b.dte);
+  const today = /* @__PURE__ */ new Date(DATA.today + "T00:00:00");
+  const maxDte = Math.max(...sorted.map((c) => c.dte), ...sorted.map((c) => c.zoneDays), 1);
+  const axisMax = Math.ceil((maxDte + 3) / 7) * 7;
+  const card = document.createElement("div");
+  card.className = "card gantt-card";
+  for (const c of sorted) {
+    const row = document.createElement("div");
+    row.className = "gantt-row";
+    const label = document.createElement("div");
+    label.className = "gantt-label";
+    const tk = document.createElement("div");
+    tk.className = "tk";
+    tk.textContent = c.underlying;
+    const strikes = document.createElement("div");
+    strikes.className = "strikes";
+    strikes.textContent = c.label.slice(c.underlying.length + 1);
+    label.append(tk, strikes);
+    row.appendChild(label);
+    const track = document.createElement("div");
+    track.className = "gantt-track";
+    const zoneBand = document.createElement("div");
+    zoneBand.className = "zone-band";
+    zoneBand.style.width = pct(c.zoneDays, axisMax);
+    track.appendChild(zoneBand);
+    const bar = document.createElement("div");
+    bar.className = "bar" + (c.gain ? "" : " loss");
+    bar.style.width = pct(c.dte, axisMax);
+    track.appendChild(bar);
+    const tipLabel = document.createElement("div");
+    tipLabel.className = "tip-label";
+    tipLabel.textContent = c.dte + "d";
+    tipLabel.style.left = "calc(" + pct(c.dte, axisMax) + " + 6px)";
+    track.appendChild(tipLabel);
+    if (c.earningsFlag) {
+      const earningsDte = Math.round((/* @__PURE__ */ new Date(c.earningsDate + "T00:00:00") - today) / 864e5);
+      const marker = document.createElement("div");
+      marker.className = "marker diamond";
+      marker.style.left = pct(earningsDte, axisMax);
+      track.appendChild(marker);
+    }
+    if (c.news) {
+      const marker = starIcon();
+      marker.classList.add("marker");
+      marker.style.left = pct(c.dte + 1, axisMax);
+      track.appendChild(marker);
+    }
+    row.appendChild(track);
+    wireHover(row, c);
+    card.appendChild(row);
+  }
+  const axis = document.createElement("div");
+  axis.className = "gantt-axis";
+  const axisLabelSpacer = document.createElement("div");
+  axis.appendChild(axisLabelSpacer);
+  const ticks = document.createElement("div");
+  ticks.className = "ticks";
+  for (let d = 0; d <= axisMax; d += 7) {
+    const tick = document.createElement("div");
+    tick.className = "tick";
+    tick.style.left = pct(d, axisMax);
+    tick.textContent = d + "d";
+    ticks.appendChild(tick);
+  }
+  axis.appendChild(ticks);
+  card.appendChild(axis);
+  root.appendChild(card);
+}
+function pct(value, max) {
+  return Math.max(0, Math.min(100, value / max * 100)) + "%";
+}
+const statTickers = [];
+function buildStats(chips) {
+  const netPnl = chips.reduce((sum, c) => sum + c.pnl, 0);
+  const zoneCount = chips.filter((c) => c.inDecisionZone).length;
+  const earningsCount = chips.filter((c) => c.earningsFlag).length;
+  const stats = [
+    { label: "Open spreads", value: chips.length, format: int0 },
+    { label: "Net unrealized P&L", value: netPnl, format: fmtMoney, cls: netPnl >= 0 ? "good" : "critical" },
+    { label: "In decision zone", value: zoneCount, format: int0 },
+    { label: "Earnings collisions", value: earningsCount, format: int0 }
+  ];
+  const el2 = document.getElementById("stats");
+  if (!statTickers.length) {
+    for (const s of stats) {
+      const div = document.createElement("div");
+      div.className = "stat";
+      const label = document.createElement("div");
+      label.className = "label";
+      label.textContent = s.label;
+      const value = document.createElement("div");
+      value.className = "value";
+      const ticker = makeTicker(s.format);
+      value.appendChild(ticker.el);
+      div.append(label, value);
+      el2.appendChild(div);
+      statTickers.push(ticker);
+    }
+  }
+  stats.forEach((s, i) => {
+    statTickers[i].el.classList.toggle("good", s.cls === "good");
+    statTickers[i].el.classList.toggle("critical", s.cls === "critical");
+    statTickers[i].set(s.value);
+  });
+}
+function buildTable(chips) {
+  const root = document.getElementById("tableView");
+  root.innerHTML = "";
+  const table = document.createElement("table");
+  table.className = "data";
+  const thead = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  for (const h of ["Ticker", "Strikes", "Expiry", "DTE", "P&L", "Decision zone", "Earnings", "News"]) {
+    const th = document.createElement("th");
+    th.textContent = h;
+    headRow.appendChild(th);
+  }
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+  const tbody = document.createElement("tbody");
+  const sorted = [...chips].sort((a, b) => a.dte - b.dte);
+  for (const c of sorted) {
+    const tr = document.createElement("tr");
+    const cells = [
+      c.underlying,
+      c.label.slice(c.underlying.length + 1),
+      fmtDate(c.expiry),
+      c.dte + "d",
+      fmtMoney(c.pnl),
+      c.inDecisionZone ? "Yes (≤" + c.zoneDays + "d)" : "—",
+      c.earningsFlag ? fmtDate(c.earningsDate) : "—",
+      c.news ? "Yes" : "—"
+    ];
+    cells.forEach((val, i) => {
+      const td = document.createElement("td");
+      td.textContent = val;
+      if (i === 3 || i === 4) td.classList.add("num");
+      if (i === 4) td.classList.add(c.gain ? "good" : "critical");
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  root.appendChild(table);
+}
+function render() {
+  const chips = filteredChips();
+  buildFilters(render);
+  buildStats(chips);
+  buildCalendar(chips);
+  buildGantt(chips);
+  buildTable(chips);
+  buildAccounts();
+}
+document.getElementById("subtitle").textContent = DATA.chips.length + " open spreads · generated " + (/* @__PURE__ */ new Date(DATA.today + "T00:00:00")).toLocaleDateString(void 0, { month: "long", day: "numeric", year: "numeric" });
+const views = {
+  calendar: document.getElementById("calendarView"),
+  gantt: document.getElementById("ganttView"),
+  table: document.getElementById("tableView"),
+  accounts: document.getElementById("accountsView")
+};
+if (DATA.accounts.length) document.getElementById("accountsTab").classList.remove("hidden");
+document.getElementById("views").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-view]");
+  if (!btn) return;
+  state.view = btn.dataset.view;
+  document.querySelectorAll("#views button").forEach((b) => b.classList.toggle("active", b === btn));
+  for (const [name, node] of Object.entries(views)) node.classList.toggle("hidden", name !== state.view);
+  const spreadView = state.view !== "accounts";
+  document.querySelectorAll(".spread-only").forEach((node) => node.classList.toggle("hidden", !spreadView));
+  if (state.view === "accounts") acctTickers.forEach((ticker) => ticker.replay());
+});
+render();</script>
+  <style rel="stylesheet" crossorigin>:root {
+    color-scheme: light;
+    /* Bayswater Research brand: deep navy #16324A, slate #3B5A70,
+       copper accent #B05F3A / #D98A5C (dark), warm white #FAF9F7. */
+    /* Glass is a white-tinted film over whatever is behind it, not a solid
+       panel with an opacity. Keeping the tint white in both themes is what
+       makes the blur read as frosted glass rather than as a dimmed surface. */
+    --surface-1:      rgba(255, 255, 255, 0.38);
+    /* The specular hairline along a pane's top edge -- the single cheapest
+       cue that a surface is glass and not paint. */
+    --edge:           rgba(255, 255, 255, 0.95);
+    --shade:          rgba(22, 50, 74, 0.16);
+    --surface-solid:  #fdfcfa;
+    --page-plane:     #e3ddd3;
+    --text-primary:   #16324a;
+    --text-secondary: #4a6377;
+    --text-muted:     #8a99a4;
+    --gridline:       rgba(22, 50, 74, 0.09);
+    --baseline:       #c3c2b7;
+    --border:         rgba(22, 50, 74, 0.14);
+    --good:           #0ca30c;
+    --good-text:      #006300;
+    --critical:       #d03b3b;
+    --warning:        #fab219;
+    --cat-orange:     #eb6834;
+    --cat-yellow:     #eda100;
+    --accent:         #3b5a70;
+    --accent-wash:    rgba(59, 90, 112, 0.10);
+    --copper:         #b05f3a;
+    --copper-wash:    rgba(176, 95, 58, 0.12);
+    --glow:           rgba(59, 90, 112, 0.28);
+    /* Ground-plane light. Saturated on purpose and only ever seen *through*
+       the panes -- glass with nothing behind it is just a grey rectangle. */
+    --wash-a:         rgba(59, 90, 112, 0.44);
+    --wash-b:         rgba(176, 95, 58, 0.38);
+    --wash-c:         rgba(108, 142, 126, 0.34);
+    /* Saturation is what stops a heavy blur from turning the colour behind it
+       to grey, and it is most of the difference between "frosted" and "foggy". */
+    --blur: blur(30px) saturate(185%);
+  }
+  /* Dark is opt-in via <html data-theme="dark">, not automatic. The page is a
+     white-glass design first; following the OS would hand a reader the dark
+     palette by default and that is not what this is tuned for. */
+  :root[data-theme="dark"] {
+      color-scheme: dark;
+      /* White film, low alpha -- the dark ground shows through it rather than
+         the panel being navy. A navy-tinted surface reads as muddy plastic. */
+      --surface-1:      rgba(255, 255, 255, 0.055);
+      --edge:           rgba(255, 255, 255, 0.28);
+      --shade:          rgba(0, 0, 0, 0.28);
+      --surface-solid:  #101c27;
+      --page-plane:     #070d14;
+      --text-primary:   #faf9f7;
+      --text-secondary: #9fb3c4;
+      --text-muted:     #62798c;
+      --gridline:       rgba(255, 255, 255, 0.10);
+      --baseline:       #383835;
+      --border:         rgba(255, 255, 255, 0.13);
+      --good:           #0ca30c;
+      --good-text:      #0ca30c;
+      --critical:       #e66767;
+      --warning:        #fab219;
+      --cat-orange:     #d95926;
+      --cat-yellow:     #c98500;
+      --accent:         #7ea0b8;
+      --accent-wash:    rgba(126, 160, 184, 0.16);
+      --copper:         #d98a5c;
+      --copper-wash:    rgba(217, 138, 92, 0.16);
+      --glow:           rgba(126, 160, 184, 0.45);
+      --wash-a:         rgba(126, 160, 184, 0.40);
+      --wash-b:         rgba(217, 138, 92, 0.30);
+      --wash-c:         rgba(90, 140, 150, 0.26);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+      radial-gradient(1200px 680px at 6% -14%, var(--wash-a), transparent 60%),
+      radial-gradient(1000px 560px at 102% 2%, var(--wash-b), transparent 58%),
+      radial-gradient(820px 820px at 62% 108%, var(--wash-c), transparent 58%),
+      var(--page-plane);
+    background-attachment: fixed;
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .page {
+    /* Wide by design: the calendar lays months out side by side, and a fixed
+       1120px column left most of a widescreen empty. */
+    max-width: min(1760px, 94vw);
+    margin: 0 auto;
+    padding: 32px 20px 64px;
+  }
+  header.hd {
+    position: relative;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 22px;
+    padding-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  header.hd::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--text-primary), var(--accent) 55%, var(--copper));
+    opacity: 0.5;
+  }
+  header.hd h1 {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0;
+  }
+  header.hd p {
+    margin: 4px 0 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+
+  .views {
+    display: inline-flex;
+    overflow: hidden;
+    flex: none;
+  }
+  .views button {
+    border: none;
+    border-right: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    padding: 7px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+  }
+  .views button:last-child { border-right: none; }
+  .views button:hover { background: var(--accent-wash); }
+  .views button.active {
+    background: var(--accent-wash);
+    color: var(--text-primary);
+    box-shadow: inset 0 0 0 1px var(--accent), inset 0 0 14px var(--glow);
+  }
+
+  .filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 20px;
+  }
+  .filters .fl {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-right: 4px;
+  }
+  .pill {
+    border: 1px solid var(--border);
+    background: var(--surface-1);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    box-shadow: inset 0 1px 0 var(--edge);
+    color: var(--text-secondary);
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+  }
+  .pill:hover { background: var(--accent-wash); }
+  .pill.active {
+    background: var(--accent-wash);
+    border-color: var(--accent);
+    color: var(--text-primary);
+    box-shadow: 0 0 0 1px var(--accent), 0 0 14px var(--glow);
+  }
+
+  /* Flex, not grid, for the same reason as .acct-body: the last row stretches
+     to fill instead of leaving a dead pane. Cells are transparent -- the glass
+     belongs to the container, and stacking a second film on top of it is what
+     turns frosted into foggy. */
+  .stats {
+    display: flex;
+    flex-wrap: wrap;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .stat {
+    flex: 1 1 160px;
+    padding: 16px 18px;
+    border-right: 1px solid var(--border);
+  }
+  .stat:last-child { border-right: none; }
+  .stat .label {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .stat .value {
+    font-size: 26px;
+    font-weight: 600;
+    margin-top: 4px;
+    font-variant-numeric: proportional-nums;
+  }
+  .stat .value.good { color: var(--good-text); }
+  .stat .value.critical { color: var(--critical); }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    align-items: center;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .legend .item { display: flex; align-items: center; gap: 6px; }
+  .legend .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .legend .diamond {
+    width: 9px; height: 9px; flex: none;
+    background: var(--cat-orange); transform: rotate(45deg);
+  }
+  .legend .star { width: 12px; height: 12px; flex: none; color: var(--cat-yellow); }
+  .legend .ring {
+    width: 9px; height: 9px; border-radius: 50%; flex: none;
+    box-shadow: 0 0 0 2px var(--warning);
+  }
+
+  /* One glass recipe, so every pane on the page catches light the same way:
+     a white film, a real blur behind it, a hairline of specular along the top
+     edge and a soft drop shadow to lift it off the ground plane. */
+  .card, .acct, .stats, .legend, .views, .tooltip {
+    background: var(--surface-1);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border: 1px solid var(--border);
+    box-shadow: inset 0 1px 0 var(--edge), inset 0 0 0 1px rgba(255,255,255,0.22), 0 14px 40px var(--shade);
+  }
+  .card {
+    overflow: hidden;
+    margin-bottom: 28px;
+  }
+  /* Months side by side. `auto-fit` + a 660px floor means the browser decides
+     how many fit: one on a laptop, two on a 1920 screen, three on an ultrawide
+     -- and the floor is what stops it packing in a third column so narrow that
+     a day cell (a seventh of it) can no longer hold a chip. */
+  .months {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(660px, 1fr));
+    gap: 24px;
+    align-items: start;
+  }
+  .months .card { margin-bottom: 0; }
+
+  .month-title {
+    padding: 14px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--gridline);
+  }
+  .weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    border-bottom: 1px solid var(--gridline);
+  }
+  .weekdays div {
+    padding: 8px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .weeks { display: grid; }
+  .week-row {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    border-bottom: 1px solid var(--gridline);
+  }
+  .week-row:last-child { border-bottom: none; }
+  .day {
+    min-height: 74px;
+    padding: 6px;
+    border-right: 1px solid var(--gridline);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .day:last-child { border-right: none; }
+  .day.outside .daynum { color: var(--text-muted); opacity: 0.5; }
+  .day.today { background: var(--accent-wash); }
+  .daynum {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+  .day.today .daynum {
+    display: inline-flex;
+    align-self: flex-start;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px; height: 18px;
+    padding: 0 4px;
+    background: var(--accent);
+    color: white;
+    font-weight: 600;
+    box-shadow: 0 0 12px var(--glow);
+  }
+  .chip {
+    position: relative;
+    background: var(--surface-solid);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--good);
+    padding: 3px 7px 3px 6px;
+    cursor: default;
+    transition: box-shadow 0.15s;
+  }
+  .chip:hover { box-shadow: 0 0 0 1px var(--border), 0 4px 16px rgba(0,0,0,0.12); }
+  .chip.loss { border-left-color: var(--critical); }
+  .chip.zone { box-shadow: 0 0 0 2px var(--warning), 0 0 10px rgba(250,178,25,0.35); }
+  .chip .tk { font-size: 11.5px; font-weight: 600; }
+  .chip .strikes { font-size: 10.5px; color: var(--text-secondary); }
+  .chip .badges {
+    position: absolute;
+    top: 3px; right: 4px;
+    display: flex;
+    gap: 2px;
+  }
+  .chip .diamond {
+    width: 7px; height: 7px;
+    background: var(--cat-orange);
+    transform: rotate(45deg);
+  }
+  .chip .star { width: 9px; height: 9px; color: var(--cat-yellow); }
+
+  .gantt-card { padding-bottom: 8px; }
+  .gantt-row {
+    display: grid;
+    grid-template-columns: 150px 1fr;
+    align-items: center;
+    gap: 12px;
+    padding: 7px 18px;
+    border-bottom: 1px solid var(--gridline);
+  }
+  .gantt-row:hover { background: var(--accent-wash); }
+  .gantt-label .tk { font-size: 12px; font-weight: 600; }
+  .gantt-label .strikes { font-size: 11px; color: var(--text-secondary); }
+  .gantt-track { position: relative; height: 24px; }
+  .gantt-track .zone-band {
+    position: absolute;
+    left: 0; top: 2px; bottom: 2px;
+    background: rgba(250, 178, 25, 0.16);
+  }
+  .gantt-track .bar {
+    position: absolute;
+    left: 0; top: 5px; height: 14px;
+    background: var(--good);
+    min-width: 3px;
+  }
+  .gantt-track .bar.loss { background: var(--critical); }
+  .gantt-track .tip-label {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 11px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .gantt-track .marker {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+  }
+  .gantt-track .marker.diamond {
+    width: 8px; height: 8px;
+    background: var(--cat-orange);
+    transform: translate(-50%, -50%) rotate(45deg);
+  }
+  .gantt-track .marker.star { width: 11px; height: 11px; color: var(--cat-yellow); }
+  .gantt-axis {
+    display: grid;
+    grid-template-columns: 150px 1fr;
+    padding: 8px 18px 12px;
+  }
+  .gantt-axis .ticks {
+    position: relative;
+    height: 18px;
+    border-top: 1px solid var(--gridline);
+  }
+  .gantt-axis .tick {
+    position: absolute;
+    top: 5px;
+    font-size: 10px;
+    color: var(--text-muted);
+    transform: translateX(-50%);
+  }
+  .gantt-empty, .cal-empty {
+    padding: 40px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  .tooltip {
+    position: fixed;
+    z-index: 20;
+    background: var(--text-primary);
+    color: var(--surface-solid);
+    font-size: 12px;
+    line-height: 1.5;
+    padding: 8px 10px;
+    pointer-events: none;
+    max-width: 240px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25), 0 0 20px var(--glow);
+    opacity: 0;
+    transition: opacity 0.1s;
+  }
+  .tooltip.show { opacity: 1; }
+  .tooltip b { font-weight: 600; }
+  .tooltip .row { display: flex; justify-content: space-between; gap: 12px; }
+
+  table.data {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--surface-1);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    box-shadow: inset 0 1px 0 var(--edge), 0 10px 30px var(--shade);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    font-size: 13px;
+  }
+  table.data th, table.data td {
+    text-align: left;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--gridline);
+  }
+  table.data tr:hover td { background: var(--accent-wash); }
+  table.data th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  table.data td.num { font-variant-numeric: tabular-nums; }
+  table.data td.good { color: var(--good-text); }
+  table.data td.critical { color: var(--critical); }
+  table.data tr:last-child td { border-bottom: none; }
+
+  /* ---- NumberTicker ---------------------------------------------------
+     A port of https://github.com/joshua-repo/NumberTicker (SwiftUI, itself
+     modelled on Robinhood's ticker). Each digit is its own wheel of 0-9 that
+     springs into place while separators, the currency symbol and the sign
+     stay put.
+
+     Faithful to the original in the parts that make it read as that
+     component: digits run 9 -> 0 top to bottom, so a *rising* digit rolls the
+     strip downward; every wheel is driven by one spring with no stagger; and
+     the first paint starts mid-wheel (the original's 4.5 offset, between 4
+     and 5) and rolls out to the real number.
+
+     One deliberate departure. The original paints its top/bottom fade as a
+     gradient in a caller-supplied background colour; these cards sit on a
+     translucent, blurred surface, so a colour gradient would smear against
+     whatever showed through. Masking fades the digits themselves to
+     transparent instead -- same intent, and it holds over any backdrop. */
+  .ticker {
+    --tk-h: 1.5em;      /* one digit cell: the glyph plus the space it rolls through */
+    --tk-fade: 0.22em;  /* the fog at each end, over the cell's padding only */
+    display: inline-flex;
+    align-items: stretch;
+    height: var(--tk-h);
+    font-variant-numeric: tabular-nums;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--tk-fade), #000 calc(100% - var(--tk-fade)), transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 var(--tk-fade), #000 calc(100% - var(--tk-fade)), transparent 100%);
+  }
+  .ticker .tk-col {
+    height: var(--tk-h);
+    overflow: hidden;
+  }
+  .ticker .tk-strip {
+    display: flex;
+    flex-direction: column;
+    /* Overdamped-with-a-kick, which is what interpolatingSpring(stiffness: 8,
+       damping: 8, initialVelocity: 2).speed(6) actually resolves to: fast
+       away, barely any overshoot, settles rather than bounces. */
+    transition: transform 620ms cubic-bezier(0.2, 1.06, 0.25, 1);
+    will-change: transform;
+  }
+  .ticker .tk-strip > span {
+    height: var(--tk-h);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .ticker .tk-sep {
+    display: flex;
+    align-items: center;
+    padding: 0 0.02em;
+  }
+  .ticker.tk-lg {
+    font-size: 34px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  /* No highlight on the wheel itself: a gradient per digit column paints a
+     visible block behind each glyph rather than a curved surface. The fade
+     mask is what gives the drum its shape. */
+  .ticker.good { color: var(--good-text); }
+  .ticker.critical { color: var(--critical); }
+  @media (prefers-reduced-motion: reduce) {
+    /* The roll is decoration; the number is the content. */
+    .ticker .tk-strip { transition: none; }
+  }
+
+  /* ---- Accounts view -------------------------------------------------- */
+  .acct {
+    margin-bottom: 22px;
+  }
+  .acct-hd {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  .acct-hd h2 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  .acct-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .acct-tag {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--copper);
+    border: 1px solid var(--copper);
+    padding: 2px 8px;
+  }
+  /* Flex rather than grid, specifically so the last row stretches to fill.
+     An auto-fit grid leaves a dead panel wherever the cell count is not a
+     multiple of the column count, and that gap reads as a rendering fault
+     rather than as empty space. */
+  .acct-body {
+    display: flex;
+    flex-wrap: wrap;
+  }
+  .acct-body .cell {
+    flex: 1 1 168px;
+    padding: 16px 18px;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .acct-body .cell:last-child { border-right: none; }
+  /* The headline number earns roughly two columns, not the whole row. */
+  .acct-body .cell.hero { flex: 2 1 288px; }
+  .cell .label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+  }
+  .cell .sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 6px;
+    font-variant-numeric: tabular-nums;
+  }
+  .cell .value-sm {
+    font-size: 19px;
+    font-weight: 600;
+  }
+
+  /* Margin headroom. The bar is a meter, so it carries data colour: green
+     while there is room, amber approaching the line, red past it. */
+  .meter {
+    height: 8px;
+    background: var(--accent-wash);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    margin-top: 10px;
+  }
+  .meter span {
+    display: block;
+    height: 100%;
+    background: var(--good);
+    transition: width 620ms cubic-bezier(0.2, 1.06, 0.25, 1);
+  }
+  .meter.warn span { background: var(--warning); }
+  .meter.crit span { background: var(--critical); }
+
+  /* The combined card is an assertion the others are not -- it adds numbers
+     from different currencies together -- so it is marked out as one. */
+  .acct.total { border-color: var(--accent); }
+  .fx-pick {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  .fx-pick .fl { margin-right: 2px; }
+  .fx-pick .pill {
+    padding: 4px 10px;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+  }
+  .note.warn { color: var(--critical); }
+
+  .acct-rows {
+    /* No top border: the cells above already draw one along their bottom. */
+    padding: 14px 18px 16px;
+  }
+  .acct-rows h3 {
+    margin: 0 0 10px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .hold {
+    display: grid;
+    grid-template-columns: 74px 1fr auto;
+    align-items: center;
+    gap: 12px;
+    padding: 5px 0;
+    font-size: 13px;
+  }
+  .hold .sym { font-weight: 600; }
+  .hold .track {
+    position: relative;
+    height: 14px;
+    background: var(--gridline);
+  }
+  .hold .track i {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    background: var(--accent);
+    opacity: 0.55;
+    transition: width 620ms cubic-bezier(0.2, 1.06, 0.25, 1);
+  }
+  .hold .amt {
+    font-variant-numeric: tabular-nums;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+  .hold .qty {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .ccy-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 22px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+    padding: 3px 0;
+  }
+  .ccy-row b { color: var(--text-primary); font-weight: 600; }
+  .note {
+    margin-top: 10px;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .acct.failed { border-color: var(--critical); }
+  .acct .err {
+    padding: 16px 18px;
+    font-size: 13px;
+    color: var(--critical);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    word-break: break-word;
+  }
+
+  .hidden { display: none !important; }</style>
+</head>
+<body>
+<div class="page">
+  <header class="hd">
+    <div>
+      <h1>Bull put spread expiry calendar</h1>
+      <p id="subtitle"></p>
+    </div>
+    <div class="views" id="views">
+      <button data-view="calendar" class="active">Calendar</button>
+      <button data-view="gantt">Gantt</button>
+      <button data-view="table">Table</button>
+      <button data-view="accounts" id="accountsTab" class="hidden">Accounts</button>
+    </div>
+  </header>
+
+  <div class="filters spread-only" id="filters">
+    <span class="fl">Underlying</span>
+  </div>
+
+  <div class="stats spread-only" id="stats"></div>
+
+  <div class="legend spread-only">
+    <span class="item"><span class="dot" style="background:var(--good)"></span>Net gain</span>
+    <span class="item"><span class="dot" style="background:var(--critical)"></span>Net loss</span>
+    <span class="item"><span class="ring"></span>In decision zone</span>
+    <span class="item"><span class="diamond"></span>Earnings before expiry</span>
+    <span class="item"><svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.9-6.3 3.9 1.7-7L2 9.2l7.1-.6z"/></svg>Recent headline</span>
+  </div>
+
+  <div id="calendarView"></div>
+  <div id="ganttView" class="hidden"></div>
+  <div id="tableView" class="hidden"></div>
+  <div id="accountsView" class="hidden"></div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+</body>
+</html>

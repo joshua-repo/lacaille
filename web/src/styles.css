@@ -1,0 +1,690 @@
+  :root {
+    color-scheme: light;
+    /* Bayswater Research brand: deep navy #16324A, slate #3B5A70,
+       copper accent #B05F3A / #D98A5C (dark), warm white #FAF9F7. */
+    /* Glass is a white-tinted film over whatever is behind it, not a solid
+       panel with an opacity. Keeping the tint white in both themes is what
+       makes the blur read as frosted glass rather than as a dimmed surface. */
+    --surface-1:      rgba(255, 255, 255, 0.38);
+    /* The specular hairline along a pane's top edge -- the single cheapest
+       cue that a surface is glass and not paint. */
+    --edge:           rgba(255, 255, 255, 0.95);
+    --shade:          rgba(22, 50, 74, 0.16);
+    --surface-solid:  #fdfcfa;
+    --page-plane:     #e3ddd3;
+    --text-primary:   #16324a;
+    --text-secondary: #4a6377;
+    --text-muted:     #8a99a4;
+    --gridline:       rgba(22, 50, 74, 0.09);
+    --baseline:       #c3c2b7;
+    --border:         rgba(22, 50, 74, 0.14);
+    --good:           #0ca30c;
+    --good-text:      #006300;
+    --critical:       #d03b3b;
+    --warning:        #fab219;
+    --cat-orange:     #eb6834;
+    --cat-yellow:     #eda100;
+    --accent:         #3b5a70;
+    --accent-wash:    rgba(59, 90, 112, 0.10);
+    --copper:         #b05f3a;
+    --copper-wash:    rgba(176, 95, 58, 0.12);
+    --glow:           rgba(59, 90, 112, 0.28);
+    /* Ground-plane light. Saturated on purpose and only ever seen *through*
+       the panes -- glass with nothing behind it is just a grey rectangle. */
+    --wash-a:         rgba(59, 90, 112, 0.44);
+    --wash-b:         rgba(176, 95, 58, 0.38);
+    --wash-c:         rgba(108, 142, 126, 0.34);
+    /* Saturation is what stops a heavy blur from turning the colour behind it
+       to grey, and it is most of the difference between "frosted" and "foggy". */
+    --blur: blur(30px) saturate(185%);
+  }
+  /* Dark is opt-in via <html data-theme="dark">, not automatic. The page is a
+     white-glass design first; following the OS would hand a reader the dark
+     palette by default and that is not what this is tuned for. */
+  :root[data-theme="dark"] {
+      color-scheme: dark;
+      /* White film, low alpha -- the dark ground shows through it rather than
+         the panel being navy. A navy-tinted surface reads as muddy plastic. */
+      --surface-1:      rgba(255, 255, 255, 0.055);
+      --edge:           rgba(255, 255, 255, 0.28);
+      --shade:          rgba(0, 0, 0, 0.28);
+      --surface-solid:  #101c27;
+      --page-plane:     #070d14;
+      --text-primary:   #faf9f7;
+      --text-secondary: #9fb3c4;
+      --text-muted:     #62798c;
+      --gridline:       rgba(255, 255, 255, 0.10);
+      --baseline:       #383835;
+      --border:         rgba(255, 255, 255, 0.13);
+      --good:           #0ca30c;
+      --good-text:      #0ca30c;
+      --critical:       #e66767;
+      --warning:        #fab219;
+      --cat-orange:     #d95926;
+      --cat-yellow:     #c98500;
+      --accent:         #7ea0b8;
+      --accent-wash:    rgba(126, 160, 184, 0.16);
+      --copper:         #d98a5c;
+      --copper-wash:    rgba(217, 138, 92, 0.16);
+      --glow:           rgba(126, 160, 184, 0.45);
+      --wash-a:         rgba(126, 160, 184, 0.40);
+      --wash-b:         rgba(217, 138, 92, 0.30);
+      --wash-c:         rgba(90, 140, 150, 0.26);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+      radial-gradient(1200px 680px at 6% -14%, var(--wash-a), transparent 60%),
+      radial-gradient(1000px 560px at 102% 2%, var(--wash-b), transparent 58%),
+      radial-gradient(820px 820px at 62% 108%, var(--wash-c), transparent 58%),
+      var(--page-plane);
+    background-attachment: fixed;
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .page {
+    /* Wide by design: the calendar lays months out side by side, and a fixed
+       1120px column left most of a widescreen empty. */
+    max-width: min(1760px, 94vw);
+    margin: 0 auto;
+    padding: 32px 20px 64px;
+  }
+  header.hd {
+    position: relative;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 22px;
+    padding-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  header.hd::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--text-primary), var(--accent) 55%, var(--copper));
+    opacity: 0.5;
+  }
+  header.hd h1 {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0;
+  }
+  header.hd p {
+    margin: 4px 0 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+
+  .views {
+    display: inline-flex;
+    overflow: hidden;
+    flex: none;
+  }
+  .views button {
+    border: none;
+    border-right: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    padding: 7px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+  }
+  .views button:last-child { border-right: none; }
+  .views button:hover { background: var(--accent-wash); }
+  .views button.active {
+    background: var(--accent-wash);
+    color: var(--text-primary);
+    box-shadow: inset 0 0 0 1px var(--accent), inset 0 0 14px var(--glow);
+  }
+
+  .filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 20px;
+  }
+  .filters .fl {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-right: 4px;
+  }
+  .pill {
+    border: 1px solid var(--border);
+    background: var(--surface-1);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    box-shadow: inset 0 1px 0 var(--edge);
+    color: var(--text-secondary);
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+  }
+  .pill:hover { background: var(--accent-wash); }
+  .pill.active {
+    background: var(--accent-wash);
+    border-color: var(--accent);
+    color: var(--text-primary);
+    box-shadow: 0 0 0 1px var(--accent), 0 0 14px var(--glow);
+  }
+
+  /* Flex, not grid, for the same reason as .acct-body: the last row stretches
+     to fill instead of leaving a dead pane. Cells are transparent -- the glass
+     belongs to the container, and stacking a second film on top of it is what
+     turns frosted into foggy. */
+  .stats {
+    display: flex;
+    flex-wrap: wrap;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .stat {
+    flex: 1 1 160px;
+    padding: 16px 18px;
+    border-right: 1px solid var(--border);
+  }
+  .stat:last-child { border-right: none; }
+  .stat .label {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .stat .value {
+    font-size: 26px;
+    font-weight: 600;
+    margin-top: 4px;
+    font-variant-numeric: proportional-nums;
+  }
+  .stat .value.good { color: var(--good-text); }
+  .stat .value.critical { color: var(--critical); }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    align-items: center;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .legend .item { display: flex; align-items: center; gap: 6px; }
+  .legend .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .legend .diamond {
+    width: 9px; height: 9px; flex: none;
+    background: var(--cat-orange); transform: rotate(45deg);
+  }
+  .legend .star { width: 12px; height: 12px; flex: none; color: var(--cat-yellow); }
+  .legend .ring {
+    width: 9px; height: 9px; border-radius: 50%; flex: none;
+    box-shadow: 0 0 0 2px var(--warning);
+  }
+
+  /* One glass recipe, so every pane on the page catches light the same way:
+     a white film, a real blur behind it, a hairline of specular along the top
+     edge and a soft drop shadow to lift it off the ground plane. */
+  .card, .acct, .stats, .legend, .views, .tooltip {
+    background: var(--surface-1);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border: 1px solid var(--border);
+    box-shadow: inset 0 1px 0 var(--edge), inset 0 0 0 1px rgba(255,255,255,0.22), 0 14px 40px var(--shade);
+  }
+  .card {
+    overflow: hidden;
+    margin-bottom: 28px;
+  }
+  /* Months side by side. `auto-fit` + a 660px floor means the browser decides
+     how many fit: one on a laptop, two on a 1920 screen, three on an ultrawide
+     -- and the floor is what stops it packing in a third column so narrow that
+     a day cell (a seventh of it) can no longer hold a chip. */
+  .months {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(660px, 1fr));
+    gap: 24px;
+    align-items: start;
+  }
+  .months .card { margin-bottom: 0; }
+
+  .month-title {
+    padding: 14px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--gridline);
+  }
+  .weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    border-bottom: 1px solid var(--gridline);
+  }
+  .weekdays div {
+    padding: 8px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .weeks { display: grid; }
+  .week-row {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    border-bottom: 1px solid var(--gridline);
+  }
+  .week-row:last-child { border-bottom: none; }
+  .day {
+    min-height: 74px;
+    padding: 6px;
+    border-right: 1px solid var(--gridline);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .day:last-child { border-right: none; }
+  .day.outside .daynum { color: var(--text-muted); opacity: 0.5; }
+  .day.today { background: var(--accent-wash); }
+  .daynum {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+  .day.today .daynum {
+    display: inline-flex;
+    align-self: flex-start;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px; height: 18px;
+    padding: 0 4px;
+    background: var(--accent);
+    color: white;
+    font-weight: 600;
+    box-shadow: 0 0 12px var(--glow);
+  }
+  .chip {
+    position: relative;
+    background: var(--surface-solid);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--good);
+    padding: 3px 7px 3px 6px;
+    cursor: default;
+    transition: box-shadow 0.15s;
+  }
+  .chip:hover { box-shadow: 0 0 0 1px var(--border), 0 4px 16px rgba(0,0,0,0.12); }
+  .chip.loss { border-left-color: var(--critical); }
+  .chip.zone { box-shadow: 0 0 0 2px var(--warning), 0 0 10px rgba(250,178,25,0.35); }
+  .chip .tk { font-size: 11.5px; font-weight: 600; }
+  .chip .strikes { font-size: 10.5px; color: var(--text-secondary); }
+  .chip .badges {
+    position: absolute;
+    top: 3px; right: 4px;
+    display: flex;
+    gap: 2px;
+  }
+  .chip .diamond {
+    width: 7px; height: 7px;
+    background: var(--cat-orange);
+    transform: rotate(45deg);
+  }
+  .chip .star { width: 9px; height: 9px; color: var(--cat-yellow); }
+
+  .gantt-card { padding-bottom: 8px; }
+  .gantt-row {
+    display: grid;
+    grid-template-columns: 150px 1fr;
+    align-items: center;
+    gap: 12px;
+    padding: 7px 18px;
+    border-bottom: 1px solid var(--gridline);
+  }
+  .gantt-row:hover { background: var(--accent-wash); }
+  .gantt-label .tk { font-size: 12px; font-weight: 600; }
+  .gantt-label .strikes { font-size: 11px; color: var(--text-secondary); }
+  .gantt-track { position: relative; height: 24px; }
+  .gantt-track .zone-band {
+    position: absolute;
+    left: 0; top: 2px; bottom: 2px;
+    background: rgba(250, 178, 25, 0.16);
+  }
+  .gantt-track .bar {
+    position: absolute;
+    left: 0; top: 5px; height: 14px;
+    background: var(--good);
+    min-width: 3px;
+  }
+  .gantt-track .bar.loss { background: var(--critical); }
+  .gantt-track .tip-label {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 11px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .gantt-track .marker {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+  }
+  .gantt-track .marker.diamond {
+    width: 8px; height: 8px;
+    background: var(--cat-orange);
+    transform: translate(-50%, -50%) rotate(45deg);
+  }
+  .gantt-track .marker.star { width: 11px; height: 11px; color: var(--cat-yellow); }
+  .gantt-axis {
+    display: grid;
+    grid-template-columns: 150px 1fr;
+    padding: 8px 18px 12px;
+  }
+  .gantt-axis .ticks {
+    position: relative;
+    height: 18px;
+    border-top: 1px solid var(--gridline);
+  }
+  .gantt-axis .tick {
+    position: absolute;
+    top: 5px;
+    font-size: 10px;
+    color: var(--text-muted);
+    transform: translateX(-50%);
+  }
+  .gantt-empty, .cal-empty {
+    padding: 40px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+
+  .tooltip {
+    position: fixed;
+    z-index: 20;
+    background: var(--text-primary);
+    color: var(--surface-solid);
+    font-size: 12px;
+    line-height: 1.5;
+    padding: 8px 10px;
+    pointer-events: none;
+    max-width: 240px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25), 0 0 20px var(--glow);
+    opacity: 0;
+    transition: opacity 0.1s;
+  }
+  .tooltip.show { opacity: 1; }
+  .tooltip b { font-weight: 600; }
+  .tooltip .row { display: flex; justify-content: space-between; gap: 12px; }
+
+  table.data {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--surface-1);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    box-shadow: inset 0 1px 0 var(--edge), 0 10px 30px var(--shade);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    font-size: 13px;
+  }
+  table.data th, table.data td {
+    text-align: left;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--gridline);
+  }
+  table.data tr:hover td { background: var(--accent-wash); }
+  table.data th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  table.data td.num { font-variant-numeric: tabular-nums; }
+  table.data td.good { color: var(--good-text); }
+  table.data td.critical { color: var(--critical); }
+  table.data tr:last-child td { border-bottom: none; }
+
+  /* ---- NumberTicker ---------------------------------------------------
+     A port of https://github.com/joshua-repo/NumberTicker (SwiftUI, itself
+     modelled on Robinhood's ticker). Each digit is its own wheel of 0-9 that
+     springs into place while separators, the currency symbol and the sign
+     stay put.
+
+     Faithful to the original in the parts that make it read as that
+     component: digits run 9 -> 0 top to bottom, so a *rising* digit rolls the
+     strip downward; every wheel is driven by one spring with no stagger; and
+     the first paint starts mid-wheel (the original's 4.5 offset, between 4
+     and 5) and rolls out to the real number.
+
+     One deliberate departure. The original paints its top/bottom fade as a
+     gradient in a caller-supplied background colour; these cards sit on a
+     translucent, blurred surface, so a colour gradient would smear against
+     whatever showed through. Masking fades the digits themselves to
+     transparent instead -- same intent, and it holds over any backdrop. */
+  .ticker {
+    --tk-h: 1.5em;      /* one digit cell: the glyph plus the space it rolls through */
+    --tk-fade: 0.22em;  /* the fog at each end, over the cell's padding only */
+    display: inline-flex;
+    align-items: stretch;
+    height: var(--tk-h);
+    font-variant-numeric: tabular-nums;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--tk-fade), #000 calc(100% - var(--tk-fade)), transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 var(--tk-fade), #000 calc(100% - var(--tk-fade)), transparent 100%);
+  }
+  .ticker .tk-col {
+    height: var(--tk-h);
+    overflow: hidden;
+  }
+  .ticker .tk-strip {
+    display: flex;
+    flex-direction: column;
+    /* Overdamped-with-a-kick, which is what interpolatingSpring(stiffness: 8,
+       damping: 8, initialVelocity: 2).speed(6) actually resolves to: fast
+       away, barely any overshoot, settles rather than bounces. */
+    transition: transform 620ms cubic-bezier(0.2, 1.06, 0.25, 1);
+    will-change: transform;
+  }
+  .ticker .tk-strip > span {
+    height: var(--tk-h);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .ticker .tk-sep {
+    display: flex;
+    align-items: center;
+    padding: 0 0.02em;
+  }
+  .ticker.tk-lg {
+    font-size: 34px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  /* No highlight on the wheel itself: a gradient per digit column paints a
+     visible block behind each glyph rather than a curved surface. The fade
+     mask is what gives the drum its shape. */
+  .ticker.good { color: var(--good-text); }
+  .ticker.critical { color: var(--critical); }
+  @media (prefers-reduced-motion: reduce) {
+    /* The roll is decoration; the number is the content. */
+    .ticker .tk-strip { transition: none; }
+  }
+
+  /* ---- Accounts view -------------------------------------------------- */
+  .acct {
+    margin-bottom: 22px;
+  }
+  .acct-hd {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  .acct-hd h2 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  .acct-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .acct-tag {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--copper);
+    border: 1px solid var(--copper);
+    padding: 2px 8px;
+  }
+  /* Flex rather than grid, specifically so the last row stretches to fill.
+     An auto-fit grid leaves a dead panel wherever the cell count is not a
+     multiple of the column count, and that gap reads as a rendering fault
+     rather than as empty space. */
+  .acct-body {
+    display: flex;
+    flex-wrap: wrap;
+  }
+  .acct-body .cell {
+    flex: 1 1 168px;
+    padding: 16px 18px;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .acct-body .cell:last-child { border-right: none; }
+  /* The headline number earns roughly two columns, not the whole row. */
+  .acct-body .cell.hero { flex: 2 1 288px; }
+  .cell .label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+  }
+  .cell .sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 6px;
+    font-variant-numeric: tabular-nums;
+  }
+  .cell .value-sm {
+    font-size: 19px;
+    font-weight: 600;
+  }
+
+  /* Margin headroom. The bar is a meter, so it carries data colour: green
+     while there is room, amber approaching the line, red past it. */
+  .meter {
+    height: 8px;
+    background: var(--accent-wash);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    margin-top: 10px;
+  }
+  .meter span {
+    display: block;
+    height: 100%;
+    background: var(--good);
+    transition: width 620ms cubic-bezier(0.2, 1.06, 0.25, 1);
+  }
+  .meter.warn span { background: var(--warning); }
+  .meter.crit span { background: var(--critical); }
+
+  /* The combined card is an assertion the others are not -- it adds numbers
+     from different currencies together -- so it is marked out as one. */
+  .acct.total { border-color: var(--accent); }
+  .fx-pick {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  .fx-pick .fl { margin-right: 2px; }
+  .fx-pick .pill {
+    padding: 4px 10px;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+  }
+  .note.warn { color: var(--critical); }
+
+  .acct-rows {
+    /* No top border: the cells above already draw one along their bottom. */
+    padding: 14px 18px 16px;
+  }
+  .acct-rows h3 {
+    margin: 0 0 10px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .hold {
+    display: grid;
+    grid-template-columns: 74px 1fr auto;
+    align-items: center;
+    gap: 12px;
+    padding: 5px 0;
+    font-size: 13px;
+  }
+  .hold .sym { font-weight: 600; }
+  .hold .track {
+    position: relative;
+    height: 14px;
+    background: var(--gridline);
+  }
+  .hold .track i {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    background: var(--accent);
+    opacity: 0.55;
+    transition: width 620ms cubic-bezier(0.2, 1.06, 0.25, 1);
+  }
+  .hold .amt {
+    font-variant-numeric: tabular-nums;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+  .hold .qty {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .ccy-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 22px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+    padding: 3px 0;
+  }
+  .ccy-row b { color: var(--text-primary); font-weight: 600; }
+  .note {
+    margin-top: 10px;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .acct.failed { border-color: var(--critical); }
+  .acct .err {
+    padding: 16px 18px;
+    font-size: 13px;
+    color: var(--critical);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    word-break: break-word;
+  }
+
+  .hidden { display: none !important; }
