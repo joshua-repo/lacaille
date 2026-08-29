@@ -46,6 +46,11 @@ pictor calendar --open
 
 # paper account, if/when a paper gateway is also running
 pictor calendar --profile paper --open
+
+# not a chart -- what each broker holds right now (IBKR options + shares,
+# Trading212 shares). The quickest way to tell a credential/gateway problem
+# apart from a charting one.
+pictor positions
 ```
 
 Positions come from [antlia](https://github.com/joshua-repo/antlia)'s IBKR
@@ -54,6 +59,24 @@ TWS/Gateway running and reachable, and credentials/host resolved via
 environment variables or `~/.antlia/credentials.toml` (see antlia's README).
 If neither is set up, `pictor calendar` will fail with antlia's own
 connection error rather than silently falling back to anything.
+
+antlia also reaches a Trading212 account (`pictor positions --source
+trading212`), but that is a cash equity account with no options in it, so it
+feeds nothing in these charts -- don't reach for it when asked for a spread
+view.
+
+The calendar page's fourth tab, **Accounts**, is where both brokers do show up
+together: per-account net liquidation, cash, P&L, margin headroom and top
+holdings. It is on by default; `--no-accounts` skips it and saves a round-trip
+per broker.
+
+That tab also has a display-currency picker and a combined **All accounts**
+total, converted through `antlia.fx` (yfinance, falling back to ECB rates via
+Frankfurter). If asked for a portfolio total across brokers, read it off that
+card rather than adding the per-account numbers yourself -- and quote the rate
+source and timestamp printed under it, since the total is only as good as that
+rate. `--no-fx` skips the rate fetch, and then no total is offered at all.
+Converted P&L is not FX-adjusted performance; don't present it as such.
 
 Then open the HTML file in a browser (or use SendUserFile / a file link if
 running non-interactively).
