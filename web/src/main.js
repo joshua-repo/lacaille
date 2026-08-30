@@ -5,6 +5,7 @@ import { buildCalendar } from "./views/calendar.js";
 import { buildFilters, filteredChips } from "./views/filters.js";
 import { buildGantt } from "./views/gantt.js";
 import { buildStats } from "./views/stats.js";
+import { buildResearch } from "./views/research.js";
 import { buildTable } from "./views/table.js";
 
 export function render() {
@@ -17,9 +18,36 @@ export function render() {
   buildAccounts();
 }
 
-document.getElementById("subtitle").textContent =
-  DATA.chips.length + " open spreads · generated " +
-  new Date(DATA.today + "T00:00:00").toLocaleDateString(undefined, {month: "long", day: "numeric", year: "numeric"});
+/* Workspaces. Analysis is live broker state; Research runs over fixed datasets
+   and is a placeholder until Vela produces them. Switching hides one pane and
+   shows the other -- the view tabs belong to Analysis, so they go with it. */
+const panes = {
+  analysis: document.getElementById("analysisWs"),
+  research: document.getElementById("researchWs"),
+};
+const wsTitle = document.getElementById("wsTitle");
+
+document.getElementById("workspaces").addEventListener("click", e => {
+  const btn = e.target.closest("button[data-ws]");
+  if (!btn) return;
+  state.workspace = btn.dataset.ws;
+  document.querySelectorAll("#workspaces button").forEach(b => b.classList.toggle("active", b === btn));
+  for (const [name, pane] of Object.entries(panes)) pane.classList.toggle("hidden", name !== state.workspace);
+  wsTitle.textContent = btn.textContent;
+  setSubtitle();
+  if (state.workspace === "research") buildResearch();
+  // Tickers cannot animate inside a hidden pane, so re-roll on the way back.
+  else if (state.view === "accounts") acctTickers.forEach(t => t.replay());
+});
+
+function setSubtitle() {
+  document.getElementById("subtitle").textContent = state.workspace === "research"
+    ? "fixed datasets · backtests, sweeps and deep dives"
+    : DATA.chips.length + " open spreads · generated " +
+      new Date(DATA.today + "T00:00:00").toLocaleDateString(undefined, {month: "long", day: "numeric", year: "numeric"});
+}
+
+setSubtitle();
 
 export const views = {
   calendar: document.getElementById("calendarView"),

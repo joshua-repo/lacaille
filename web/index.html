@@ -3,42 +3,61 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Spread expiry calendar</title>
+<title>Pictor</title>
 <link rel="stylesheet" href="/src/styles.css" />
 </head>
 <body>
 <div class="page">
+  <!--
+    Two workspaces, and the line between them is the data, not the layout:
+    ANALYSIS is live -- every snapshot is stale the moment it is read, so the
+    question is always "what do I hold right now". RESEARCH is fixed -- a
+    dataset that does not move, which is what makes a backtest repeatable.
+    Mixing them would put a number that changes under your cursor next to one
+    that must not.
+  -->
   <header class="hd">
     <div>
-      <h1>Bull put spread expiry calendar</h1>
+      <h1 id="wsTitle">Analysis</h1>
       <p id="subtitle"></p>
     </div>
-    <div class="views" id="views">
-      <button data-view="calendar" class="active">Calendar</button>
-      <button data-view="gantt">Gantt</button>
-      <button data-view="table">Table</button>
-      <button data-view="accounts" id="accountsTab" class="hidden">Accounts</button>
+    <div class="views ws" id="workspaces">
+      <button data-ws="analysis" class="active">Analysis</button>
+      <button data-ws="research">Research</button>
     </div>
   </header>
 
-  <div class="filters spread-only" id="filters">
-    <span class="fl">Underlying</span>
+  <div class="ws-pane" id="analysisWs">
+    <div class="viewbar">
+      <div class="views" id="views">
+        <button data-view="calendar" class="active">Calendar</button>
+        <button data-view="gantt">Gantt</button>
+        <button data-view="table">Table</button>
+        <button data-view="accounts" id="accountsTab" class="hidden">Accounts</button>
+      </div>
+    </div>
+
+    <div class="filters spread-only" id="filters">
+      <span class="fl">Underlying</span>
+    </div>
+
+    <div class="stats spread-only" id="stats"></div>
+
+    <div class="legend spread-only">
+      <span class="item"><span class="dot" style="background:var(--good)"></span>Net gain</span>
+      <span class="item"><span class="dot" style="background:var(--critical)"></span>Net loss</span>
+      <span class="item"><span class="ring"></span>In decision zone</span>
+      <span class="item"><span class="diamond"></span>Earnings before expiry</span>
+      <span class="item"><svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.9-6.3 3.9 1.7-7L2 9.2l7.1-.6z"/></svg>Recent headline</span>
+    </div>
+
+    <div id="calendarView"></div>
+    <div id="ganttView" class="hidden"></div>
+    <div id="tableView" class="hidden"></div>
+    <div id="accountsView" class="hidden"></div>
   </div>
 
-  <div class="stats spread-only" id="stats"></div>
-
-  <div class="legend spread-only">
-    <span class="item"><span class="dot" style="background:var(--good)"></span>Net gain</span>
-    <span class="item"><span class="dot" style="background:var(--critical)"></span>Net loss</span>
-    <span class="item"><span class="ring"></span>In decision zone</span>
-    <span class="item"><span class="diamond"></span>Earnings before expiry</span>
-    <span class="item"><svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.9-6.3 3.9 1.7-7L2 9.2l7.1-.6z"/></svg>Recent headline</span>
-  </div>
-
-  <div id="calendarView"></div>
-  <div id="ganttView" class="hidden"></div>
-  <div id="tableView" class="hidden"></div>
-  <div id="accountsView" class="hidden"></div>
+  <div class="ws-pane hidden" id="researchWs"></div>
 </div>
 
 <div class="tooltip" id="tooltip"></div>

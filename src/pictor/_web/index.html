@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Spread expiry calendar</title>
+<title>Pictor</title>
   <script type="module" crossorigin>(function polyfill() {
   const relList = document.createElement("link").relList;
   if (relList && relList.supports && relList.supports("modulepreload")) return;
@@ -35,7 +35,7 @@
 })();
 const DATA = __PICTOR_DATA__;
 const FX = DATA.fx;
-const state = { view: "calendar", selected: /* @__PURE__ */ new Set(), display: DATA.fx && DATA.fx.currencies[0] || "native", account: "all" };
+const state = { workspace: "analysis", view: "calendar", selected: /* @__PURE__ */ new Set(), display: DATA.fx && DATA.fx.currencies[0] || "native", account: "all" };
 const TK_NEUTRAL = 4.5;
 const tkOffset = (n) => "translateY(calc(var(--tk-h) * " + -n + "))";
 const tkTarget = (d) => tkOffset(9 - d);
@@ -742,6 +742,44 @@ function buildStats(chips) {
     statTickers[i].set(s.value);
   });
 }
+const PLANNED = [
+  ["Backtests", "One strategy over a fixed window, with the dataset and its date range stated on the result."],
+  ["Parameter sweeps", "The same strategy across a grid of parameters, so the shape of the result is visible rather than one lucky cell."],
+  ["Deep dives", "One instrument, or a set of them, examined on their own terms -- chain, surface, history."]
+];
+function buildResearch() {
+  const root = document.getElementById("researchWs");
+  if (root.childElementCount) return;
+  const card = el("section", "acct placeholder");
+  const head = el("div", "acct-hd");
+  const left = el("div");
+  left.appendChild(el("h2", null, "Research"));
+  left.appendChild(el("div", "acct-meta", "fixed datasets · nothing here is live"));
+  head.appendChild(left);
+  head.appendChild(el("span", "acct-tag", "waiting on vela"));
+  card.appendChild(head);
+  const body = el("div", "acct-rows");
+  body.appendChild(el(
+    "p",
+    "ph-lede",
+    "Analysis answers what you hold right now, off a broker snapshot that is stale the moment it is read. Research answers what a strategy would have done, off a dataset that does not move -- which is the whole reason a backtest can be repeated."
+  ));
+  const list = el("div", "ph-list");
+  for (const [name, what] of PLANNED) {
+    const item = el("div", "ph-item");
+    item.appendChild(el("div", "sym", name));
+    item.appendChild(el("div", "qty", what));
+    list.appendChild(item);
+  }
+  body.appendChild(list);
+  body.appendChild(el(
+    "div",
+    "note",
+    "Vela computes these; pictor renders them. Until it lands there is deliberately nothing to click here."
+  ));
+  card.appendChild(body);
+  root.appendChild(card);
+}
 function buildTable(chips) {
   const root = document.getElementById("tableView");
   root.innerHTML = "";
@@ -791,7 +829,26 @@ function render() {
   buildTable(chips);
   buildAccounts();
 }
-document.getElementById("subtitle").textContent = DATA.chips.length + " open spreads · generated " + (/* @__PURE__ */ new Date(DATA.today + "T00:00:00")).toLocaleDateString(void 0, { month: "long", day: "numeric", year: "numeric" });
+const panes = {
+  analysis: document.getElementById("analysisWs"),
+  research: document.getElementById("researchWs")
+};
+const wsTitle = document.getElementById("wsTitle");
+document.getElementById("workspaces").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-ws]");
+  if (!btn) return;
+  state.workspace = btn.dataset.ws;
+  document.querySelectorAll("#workspaces button").forEach((b) => b.classList.toggle("active", b === btn));
+  for (const [name, pane] of Object.entries(panes)) pane.classList.toggle("hidden", name !== state.workspace);
+  wsTitle.textContent = btn.textContent;
+  setSubtitle();
+  if (state.workspace === "research") buildResearch();
+  else if (state.view === "accounts") acctTickers.forEach((t) => t.replay());
+});
+function setSubtitle() {
+  document.getElementById("subtitle").textContent = state.workspace === "research" ? "fixed datasets · backtests, sweeps and deep dives" : DATA.chips.length + " open spreads · generated " + (/* @__PURE__ */ new Date(DATA.today + "T00:00:00")).toLocaleDateString(void 0, { month: "long", day: "numeric", year: "numeric" });
+}
+setSubtitle();
 const views = {
   calendar: document.getElementById("calendarView"),
   gantt: document.getElementById("ganttView"),
@@ -956,6 +1013,27 @@ render();</script>
     color: var(--text-primary);
     box-shadow: inset 0 0 0 1px var(--accent), inset 0 0 14px var(--glow);
   }
+
+  /* The workspace switcher is a change of context, not a change of tab, so it
+     sits in the header next to the title while the view tabs live below it. */
+  .views.ws button { font-weight: 600; letter-spacing: 0.02em; }
+  .viewbar { margin-bottom: 20px; }
+  .ws-pane { display: block; }
+
+  .placeholder .ph-lede {
+    margin: 0 0 16px;
+    max-width: 68ch;
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--text-secondary);
+  }
+  .ph-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 18px;
+    margin-bottom: 14px;
+  }
+  .ph-item .qty { line-height: 1.5; margin-top: 3px; }
 
   .filters {
     display: flex;
@@ -1524,37 +1602,56 @@ render();</script>
 </head>
 <body>
 <div class="page">
+  <!--
+    Two workspaces, and the line between them is the data, not the layout:
+    ANALYSIS is live -- every snapshot is stale the moment it is read, so the
+    question is always "what do I hold right now". RESEARCH is fixed -- a
+    dataset that does not move, which is what makes a backtest repeatable.
+    Mixing them would put a number that changes under your cursor next to one
+    that must not.
+  -->
   <header class="hd">
     <div>
-      <h1>Bull put spread expiry calendar</h1>
+      <h1 id="wsTitle">Analysis</h1>
       <p id="subtitle"></p>
     </div>
-    <div class="views" id="views">
-      <button data-view="calendar" class="active">Calendar</button>
-      <button data-view="gantt">Gantt</button>
-      <button data-view="table">Table</button>
-      <button data-view="accounts" id="accountsTab" class="hidden">Accounts</button>
+    <div class="views ws" id="workspaces">
+      <button data-ws="analysis" class="active">Analysis</button>
+      <button data-ws="research">Research</button>
     </div>
   </header>
 
-  <div class="filters spread-only" id="filters">
-    <span class="fl">Underlying</span>
+  <div class="ws-pane" id="analysisWs">
+    <div class="viewbar">
+      <div class="views" id="views">
+        <button data-view="calendar" class="active">Calendar</button>
+        <button data-view="gantt">Gantt</button>
+        <button data-view="table">Table</button>
+        <button data-view="accounts" id="accountsTab" class="hidden">Accounts</button>
+      </div>
+    </div>
+
+    <div class="filters spread-only" id="filters">
+      <span class="fl">Underlying</span>
+    </div>
+
+    <div class="stats spread-only" id="stats"></div>
+
+    <div class="legend spread-only">
+      <span class="item"><span class="dot" style="background:var(--good)"></span>Net gain</span>
+      <span class="item"><span class="dot" style="background:var(--critical)"></span>Net loss</span>
+      <span class="item"><span class="ring"></span>In decision zone</span>
+      <span class="item"><span class="diamond"></span>Earnings before expiry</span>
+      <span class="item"><svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.9-6.3 3.9 1.7-7L2 9.2l7.1-.6z"/></svg>Recent headline</span>
+    </div>
+
+    <div id="calendarView"></div>
+    <div id="ganttView" class="hidden"></div>
+    <div id="tableView" class="hidden"></div>
+    <div id="accountsView" class="hidden"></div>
   </div>
 
-  <div class="stats spread-only" id="stats"></div>
-
-  <div class="legend spread-only">
-    <span class="item"><span class="dot" style="background:var(--good)"></span>Net gain</span>
-    <span class="item"><span class="dot" style="background:var(--critical)"></span>Net loss</span>
-    <span class="item"><span class="ring"></span>In decision zone</span>
-    <span class="item"><span class="diamond"></span>Earnings before expiry</span>
-    <span class="item"><svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.9-6.3 3.9 1.7-7L2 9.2l7.1-.6z"/></svg>Recent headline</span>
-  </div>
-
-  <div id="calendarView"></div>
-  <div id="ganttView" class="hidden"></div>
-  <div id="tableView" class="hidden"></div>
-  <div id="accountsView" class="hidden"></div>
+  <div class="ws-pane hidden" id="researchWs"></div>
 </div>
 
 <div class="tooltip" id="tooltip"></div>
