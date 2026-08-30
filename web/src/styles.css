@@ -738,33 +738,6 @@
     color: var(--text-muted);
   }
   .fold { margin-bottom: 14px; }
-  .fold.region { margin-bottom: 26px; }
-  .fold.region > summary {
-    font-size: 12px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    justify-content: flex-start;
-  }
-  /* The combined figure rides on the summary so collapsing the block does not
-     cost you the one number you most likely wanted to keep. */
-  .fold-sum {
-    margin-left: auto;
-    font-size: 15px;
-    font-weight: 600;
-    letter-spacing: 0;
-    text-transform: none;
-    color: var(--text-primary);
-    font-variant-numeric: tabular-nums;
-  }
-  .fold.region[open] > summary .fold-sum { opacity: 0; }
-
-  .positions-none {
-    margin: 34px 0 0;
-    font-size: 13px;
-    color: var(--text-muted);
-  }
-
   .region-head {
     display: flex;
     align-items: center;

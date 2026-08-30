@@ -454,27 +454,6 @@ function buildAccounts() {
   acctTickers.length = 0;
   fxNodes.length = 0;
   root.appendChild(DATA.accounts.length > 1 ? accountNav() : FX ? currencyPicker() : el("div"));
-  const summary = document.getElementById("accountsSum");
-  if (summary) {
-    const readable = DATA.accounts.filter((a) => a.ok);
-    fxNodes.push(() => {
-      const target = state.display === "native" ? FX ? FX.base : null : state.display;
-      if (!target) {
-        summary.textContent = "";
-        return;
-      }
-      let total = 0;
-      for (const a of readable) {
-        const value = convert(a.netLiquidation, a.currency, target);
-        if (value === null) {
-          summary.textContent = "";
-          return;
-        }
-        total += value;
-      }
-      summary.textContent = fmtCcy(total, target);
-    });
-  }
   if (state.account === "all") {
     const total = buildTotalCard(DATA.accounts);
     if (total) root.appendChild(total);
@@ -1690,33 +1669,6 @@ render();</script>
     color: var(--text-muted);
   }
   .fold { margin-bottom: 14px; }
-  .fold.region { margin-bottom: 26px; }
-  .fold.region > summary {
-    font-size: 12px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    justify-content: flex-start;
-  }
-  /* The combined figure rides on the summary so collapsing the block does not
-     cost you the one number you most likely wanted to keep. */
-  .fold-sum {
-    margin-left: auto;
-    font-size: 15px;
-    font-weight: 600;
-    letter-spacing: 0;
-    text-transform: none;
-    color: var(--text-primary);
-    font-variant-numeric: tabular-nums;
-  }
-  .fold.region[open] > summary .fold-sum { opacity: 0; }
-
-  .positions-none {
-    margin: 34px 0 0;
-    font-size: 13px;
-    color: var(--text-muted);
-  }
-
   .region-head {
     display: flex;
     align-items: center;
@@ -1871,10 +1823,7 @@ render();</script>
     </div>
 
     <div id="accountsView">
-      <details class="fold region" id="accountsFold" open>
-        <summary>Accounts<span class="fold-sum" id="accountsSum"></span></summary>
-        <div id="accountsCards"></div>
-      </details>
+      <div id="accountsCards"></div>
 
       <p class="positions-none hidden" id="positionsNone">No option positions in this account.</p>
 

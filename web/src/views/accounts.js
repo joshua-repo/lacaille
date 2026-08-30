@@ -385,24 +385,6 @@ export function buildAccounts() {
   // configured) still wants its own currency switched.
   root.appendChild(DATA.accounts.length > 1 ? accountNav() : (FX ? currencyPicker() : el("div")));
 
-  /* The collapsed accounts block must not cost you the headline, so the
-     summary carries the combined figure. Registered like any other money node,
-     so it follows the display currency too. */
-  const summary = document.getElementById("accountsSum");
-  if (summary) {
-    const readable = DATA.accounts.filter(a => a.ok);
-    fxNodes.push(() => {
-      const target = state.display === "native" ? (FX ? FX.base : null) : state.display;
-      if (!target) { summary.textContent = ""; return; }
-      let total = 0;
-      for (const a of readable) {
-        const value = convert(a.netLiquidation, a.currency, target);
-        if (value === null) { summary.textContent = ""; return; }
-        total += value;
-      }
-      summary.textContent = fmtCcy(total, target);
-    });
-  }
 
   if (state.account === "all") {
     const total = buildTotalCard(DATA.accounts);
