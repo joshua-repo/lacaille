@@ -2,14 +2,31 @@ import { DATA } from "./data.js";
 import { state } from "./state.js";
 import { acctTickers, buildAccounts } from "./views/accounts.js";
 import { buildCalendar } from "./views/calendar.js";
-import { buildFilters, filteredChips } from "./views/filters.js";
+import { accountChips, buildFilters, filteredChips } from "./views/filters.js";
 import { buildGantt } from "./views/gantt.js";
 import { buildStats } from "./views/stats.js";
 import { buildMarket } from "./views/market.js";
 import { buildResearch } from "./views/research.js";
 import { buildTable } from "./views/table.js";
 
+/* Switching account re-renders everything below it too. Exported rather than
+   imported into accounts.js the other way round for the same reason
+   buildFilters takes a callback: render() builds the account cards, so the
+   cards cannot import render() without a cycle -- but a function *declaration*
+   is hoisted, so this direction is safe and needs no indirection. */
+export function onAccountChange() {
+  state.selected.clear();   // a ticker pill from another account means nothing here
+  render();
+}
+
 export function render() {
+  /* A cash account has no options, and a Positions region showing a lone "All"
+     pill over a row of zeros and an empty calendar is three controls that can
+     only ever say nothing. Hide the region and say so in one line. */
+  const any = accountChips().length > 0;
+  document.getElementById("positions").classList.toggle("hidden", !any);
+  document.getElementById("positionsNone").classList.toggle("hidden", any);
+
   const chips = filteredChips();
   buildFilters(render);
   buildStats(chips);

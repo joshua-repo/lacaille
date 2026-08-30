@@ -14,6 +14,10 @@ class OptionLeg:
     expiry: dt.date
     position: float   # +N long, -N short
     unrealized_pnl: float
+    #: Which broker holds it. Legs from different accounts are never paired
+    #: into one spread -- they are not one position, however alike they look --
+    #: and the dashboard filters the expiry views by it.
+    source: str = ""
 
 
 @dataclass
@@ -24,6 +28,8 @@ class Spread:
     long_strike: float
     short_strike: float
     unrealized_pnl: float
+    #: Carried through from the legs, which by construction share it.
+    source: str = ""
 
     @property
     def label(self) -> str:

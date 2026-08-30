@@ -150,6 +150,7 @@ def fetch_overview(source: str, profile: str = "live") -> AccountOverview:
             expiry=p.instrument.expiry,
             position=p.quantity,
             unrealized_pnl=p.unrealized_pnl or 0.0,
+            source=snap.source,
         )
         for p in options
         if p.instrument.expiry and p.instrument.strike is not None and p.instrument.right

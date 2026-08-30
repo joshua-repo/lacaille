@@ -2,12 +2,24 @@ import { DATA } from "../data.js";
 import { state } from "../state.js";
 
 export function underlyings() {
-  return [...new Set(DATA.chips.map(c => c.underlying))].sort();
+  // Only the tickers the selected account actually holds; offering a pill that
+  // can only ever produce an empty view is a dead control.
+  return [...new Set(accountChips().map(c => c.underlying))].sort();
+}
+
+/* Two filters, and they are different in kind. The account tab decides *whose*
+   positions these are -- a Trading212 tab must not show spreads held at IBKR,
+   which is a correctness question. The ticker pills are a lens on whatever is
+   left. */
+export function accountChips() {
+  if (state.account === "all") return DATA.chips;
+  return DATA.chips.filter(c => c.source === state.account);
 }
 
 export function filteredChips() {
-  if (state.selected.size === 0) return DATA.chips;
-  return DATA.chips.filter(c => state.selected.has(c.underlying));
+  const chips = accountChips();
+  if (state.selected.size === 0) return chips;
+  return chips.filter(c => state.selected.has(c.underlying));
 }
 
 /* `onChange` rather than a direct call to render(): the filter row triggering

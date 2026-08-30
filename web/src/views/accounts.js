@@ -1,3 +1,4 @@
+import { onAccountChange } from "../main.js";
 import { makeTicker } from "../components/ticker.js";
 import { DATA, FX } from "../data.js";
 import { el } from "../dom.js";
@@ -357,9 +358,11 @@ function accountNav() {
     const button = el("button", state.account === t.key ? "active" : "", t.label);
     button.addEventListener("click", () => {
       state.account = t.key;
-      // A full rebuild, which also re-rolls every ticker -- switching account
-      // is exactly the moment the numbers should announce themselves.
-      buildAccounts();
+      // The whole page, not just the cards: the expiry views below are this
+      // account's positions, and leaving them showing another broker's spreads
+      // was the bug this callback exists to avoid. The rebuild also re-rolls
+      // every ticker, which is the right moment for it.
+      onAccountChange();
     });
     nav.appendChild(button);
   }

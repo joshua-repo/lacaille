@@ -61,6 +61,7 @@ def _build_chip_data(
         chips.append(
             {
                 "underlying": s.underlying,
+                "source": s.source,
                 "label": s.label,
                 "expiry": s.expiry.isoformat(),
                 "dte": dte,

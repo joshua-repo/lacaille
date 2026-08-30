@@ -12,6 +12,11 @@
     /* The specular hairline along a pane's top edge -- the single cheapest
        cue that a surface is glass and not paint. */
     --edge:           rgba(255, 255, 255, 0.98);
+    --film-hi:        rgba(255, 255, 255, 0.42);
+    --film-lo:        rgba(255, 255, 255, 0.04);
+    --rim:            rgba(255, 255, 255, 0.34);
+    --seat:           rgba(16, 40, 70, 0.05);
+    --grain:          0.16;
     --shade:          rgba(16, 34, 58, 0.14);
     --surface-solid:  #fdfcfa;
     --page-plane:     #e4e9f0;
@@ -39,7 +44,10 @@
     --wash-c:         rgba(109, 94, 240, 0.24);
     /* Saturation is what stops a heavy blur from turning the colour behind it
        to grey, and it is most of the difference between "frosted" and "foggy". */
-    --blur: blur(30px) saturate(185%);
+    /* Heavier than a decorative blur and more saturated than the source, which
+       is what stops a big blur from draining colour to grey. brightness lifts
+       the film so the pane sits *above* the plane rather than in it. */
+    --blur: blur(38px) saturate(200%) brightness(1.06);
   }
   /* Dark is opt-in via <html data-theme="dark">, not automatic. The page is a
      white-glass design first; following the OS would hand a reader the dark
@@ -50,6 +58,11 @@
          the panel being navy. A navy-tinted surface reads as muddy plastic. */
       --surface-1:      rgba(255, 255, 255, 0.055);
       --edge:           rgba(255, 255, 255, 0.28);
+      --film-hi:        rgba(255, 255, 255, 0.07);
+      --film-lo:        rgba(255, 255, 255, 0.00);
+      --rim:            rgba(255, 255, 255, 0.09);
+      --seat:           rgba(0, 0, 0, 0.22);
+      --grain:          0.22;
       --shade:          rgba(0, 0, 0, 0.28);
       --surface-solid:  #101c27;
       --page-plane:     #05080f;
@@ -256,12 +269,42 @@
   /* One glass recipe, so every pane on the page catches light the same way:
      a white film, a real blur behind it, a hairline of specular along the top
      edge and a soft drop shadow to lift it off the ground plane. */
-  .card, .acct, .stats, .legend, .views, .tooltip {
-    background: var(--surface-1);
+  .card, .acct, .stats, .legend, .views, .tooltip, .fold > summary {
+    position: relative;
+    background:
+      /* A gradient *inside* the film: real glass is not one flat tint, it is
+         brighter where light enters the top edge and settles toward the bottom.
+         Without this the pane reads as a translucent rectangle. */
+      linear-gradient(160deg, var(--film-hi), var(--film-lo) 62%),
+      var(--surface-1);
     backdrop-filter: var(--blur);
     -webkit-backdrop-filter: var(--blur);
     border: 1px solid var(--border);
-    box-shadow: inset 0 1px 0 var(--edge), inset 0 0 0 1px rgba(255,255,255,0.22), 0 14px 40px var(--shade);
+    box-shadow:
+      /* the specular rim: bright along the top edge, a fainter line all the
+         way round, and a dark seat at the bottom so the pane has thickness */
+      inset 0 1px 0 var(--edge),
+      inset 0 0 0 1px var(--rim),
+      inset 0 -1px 0 var(--seat),
+      /* two shadows, not one: a tight contact shadow and a wide soft one --
+         a single blur reads as a drop shadow, two read as a pane floating */
+      0 1px 2px var(--shade),
+      0 22px 48px -16px var(--shade);
+  }
+
+  /* Frosted glass is not perfectly smooth -- it scatters. A single tile of
+     turbulence at very low opacity is the difference between "blurred" and
+     "frosted"; without it a heavy blur looks like a gaussian filter, which is
+     exactly what it is. Inline SVG so the page stays self-contained. */
+  .card::after, .acct::after, .stats::after, .legend::after,
+  .views::after, .tooltip::after, .fold > summary::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: var(--grain);
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
   }
   .card {
     overflow: hidden;
@@ -716,6 +759,12 @@
   }
   .fold.region[open] > summary .fold-sum { opacity: 0; }
 
+  .positions-none {
+    margin: 34px 0 0;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
   .region-head {
     display: flex;
     align-items: center;
@@ -731,11 +780,7 @@
     font-size: 13px;
     font-weight: 600;
     color: var(--text-secondary);
-    background: var(--surface-1);
-    backdrop-filter: var(--blur);
-    -webkit-backdrop-filter: var(--blur);
     border: 1px solid var(--border);
-    box-shadow: inset 0 1px 0 var(--edge);
     display: flex;
     align-items: center;
     gap: 9px;

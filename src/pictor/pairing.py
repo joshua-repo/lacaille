@@ -29,17 +29,23 @@ def parse_leg(desc: str, position: float, pnl: float) -> OptionLeg | None:
 
 
 def pair_spreads(legs: list[OptionLeg]) -> list[Spread]:
-    """Group legs by (underlying, right, expiry) and pair each long leg with
-    a short leg into a vertical spread. Unmatched legs (no opposite-side
+    """Group legs by (source, underlying, right, expiry) and pair each long leg
+    with a short leg into a vertical spread. Unmatched legs (no opposite-side
     counterpart -- e.g. a standalone long call) are silently dropped; surface
     them separately if you want naked positions tracked too.
+
+    **`source` is part of the key**: a long leg in one broker and a short leg in
+    another are not a spread. They carry no common margin, they cannot be closed
+    together, and pairing them would invent a position that exists in neither
+    account. Legs with no source (a caller feeding its own `OptionLeg`s) all
+    share the empty string and pair as before.
     """
     groups: dict[tuple, list[OptionLeg]] = defaultdict(list)
     for leg in legs:
-        groups[(leg.underlying, leg.right, leg.expiry)].append(leg)
+        groups[(leg.source, leg.underlying, leg.right, leg.expiry)].append(leg)
 
     spreads = []
-    for (underlying, right, expiry), group in groups.items():
+    for (source, underlying, right, expiry), group in groups.items():
         longs = sorted((g for g in group if g.position > 0), key=lambda g: g.strike)
         shorts = sorted((g for g in group if g.position < 0), key=lambda g: g.strike)
         for lo, sh in zip(longs, shorts):
@@ -51,6 +57,7 @@ def pair_spreads(legs: list[OptionLeg]) -> list[Spread]:
                     long_strike=lo.strike,
                     short_strike=sh.strike,
                     unrealized_pnl=lo.unrealized_pnl + sh.unrealized_pnl,
+                    source=source,
                 )
             )
     return spreads
