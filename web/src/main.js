@@ -5,6 +5,7 @@ import { buildCalendar } from "./views/calendar.js";
 import { buildFilters, filteredChips } from "./views/filters.js";
 import { buildGantt } from "./views/gantt.js";
 import { buildStats } from "./views/stats.js";
+import { buildMarket } from "./views/market.js";
 import { buildResearch } from "./views/research.js";
 import { buildTable } from "./views/table.js";
 
@@ -49,13 +50,13 @@ function setSubtitle() {
 
 setSubtitle();
 
+/* Inside Analysis: what you own, and what the market is doing. The expiry
+   views are not peers of Accounts -- they are ways of looking at the positions
+   an account holds -- so they fold in under it rather than sitting beside it. */
 export const views = {
-  calendar: document.getElementById("calendarView"),
-  gantt: document.getElementById("ganttView"),
-  table: document.getElementById("tableView"),
   accounts: document.getElementById("accountsView"),
+  market: document.getElementById("marketView"),
 };
-if (DATA.accounts.length) document.getElementById("accountsTab").classList.remove("hidden");
 
 document.getElementById("views").addEventListener("click", e => {
   const btn = e.target.closest("button[data-view]");
@@ -63,12 +64,9 @@ document.getElementById("views").addEventListener("click", e => {
   state.view = btn.dataset.view;
   document.querySelectorAll("#views button").forEach(b => b.classList.toggle("active", b === btn));
   for (const [name, node] of Object.entries(views)) node.classList.toggle("hidden", name !== state.view);
-  // The ticker filter, the stat row and the legend all describe spreads;
-  // none of them says anything about an account balance.
-  const spreadView = state.view !== "accounts";
-  document.querySelectorAll(".spread-only").forEach(node => node.classList.toggle("hidden", !spreadView));
-  // Tickers built inside a hidden tab could not animate; roll them now.
-  if (state.view === "accounts") acctTickers.forEach(ticker => ticker.replay());
+  if (state.view === "market") buildMarket();
+  // Tickers cannot animate inside a hidden pane; roll them on the way back.
+  else acctTickers.forEach(ticker => ticker.replay());
 });
 
 render();

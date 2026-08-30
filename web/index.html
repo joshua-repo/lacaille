@@ -28,33 +28,54 @@
   </header>
 
   <div class="ws-pane" id="analysisWs">
+    <!--
+      Inside Analysis the split is what you own versus what the market is doing.
+      The expiry views are not a peer of Accounts -- they are a way of looking
+      at the positions an account holds -- so they fold in underneath it.
+    -->
     <div class="viewbar">
       <div class="views" id="views">
-        <button data-view="calendar" class="active">Calendar</button>
-        <button data-view="gantt">Gantt</button>
-        <button data-view="table">Table</button>
-        <button data-view="accounts" id="accountsTab" class="hidden">Accounts</button>
+        <button data-view="accounts" class="active">Accounts</button>
+        <button data-view="market">Market</button>
       </div>
     </div>
 
-    <div class="filters spread-only" id="filters">
-      <span class="fl">Underlying</span>
+    <div id="accountsView">
+      <div id="accountsCards"></div>
+
+      <div class="positions" id="positions">
+        <h2 class="region-title">Positions</h2>
+
+        <div class="filters" id="filters">
+          <span class="fl">Underlying</span>
+        </div>
+
+        <div class="stats" id="stats"></div>
+
+        <div class="legend">
+          <span class="item"><span class="dot" style="background:var(--good)"></span>Net gain</span>
+          <span class="item"><span class="dot" style="background:var(--critical)"></span>Net loss</span>
+          <span class="item"><span class="ring"></span>In decision zone</span>
+          <span class="item"><span class="diamond"></span>Earnings before expiry</span>
+          <span class="item"><svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.9-6.3 3.9 1.7-7L2 9.2l7.1-.6z"/></svg>Recent headline</span>
+        </div>
+
+        <details class="fold" open>
+          <summary>Expiry calendar</summary>
+          <div id="calendarView"></div>
+        </details>
+        <details class="fold">
+          <summary>Timeline</summary>
+          <div id="ganttView"></div>
+        </details>
+        <details class="fold">
+          <summary>Table</summary>
+          <div id="tableView"></div>
+        </details>
+      </div>
     </div>
 
-    <div class="stats spread-only" id="stats"></div>
-
-    <div class="legend spread-only">
-      <span class="item"><span class="dot" style="background:var(--good)"></span>Net gain</span>
-      <span class="item"><span class="dot" style="background:var(--critical)"></span>Net loss</span>
-      <span class="item"><span class="ring"></span>In decision zone</span>
-      <span class="item"><span class="diamond"></span>Earnings before expiry</span>
-      <span class="item"><svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.9-6.3 3.9 1.7-7L2 9.2l7.1-.6z"/></svg>Recent headline</span>
-    </div>
-
-    <div id="calendarView"></div>
-    <div id="ganttView" class="hidden"></div>
-    <div id="tableView" class="hidden"></div>
-    <div id="accountsView" class="hidden"></div>
+    <div id="marketView" class="hidden"></div>
   </div>
 
   <div class="ws-pane hidden" id="researchWs"></div>

@@ -57,20 +57,57 @@ export function figure(value, format, cls) {
   return ticker.el;
 }
 
+/* Two buttons and a menu, not a pill per currency.
+
+   USD and Native are the two answers wanted most of the time -- the pivot the
+   totals are computed in, and the untouched figures the broker itself reports
+   -- so they stay one click away. Everything else is occasional, and a row of
+   pills that grows with every currency added is a row that eventually wraps.
+   The menu shows the active currency when one is chosen from it, so the
+   control never disagrees with the numbers underneath it. */
 export function currencyPicker() {
   const wrap = el("div", "fx-pick");
   wrap.appendChild(el("span", "fl", "Show in"));
-  const options = [...FX.currencies, "native"];
-  for (const code of options) {
-    const button = el("button", "pill" + (code === state.display ? " active" : ""), code === "native" ? "Native" : code);
+
+  const quick = [FX.base, "native"];
+  const others = FX.currencies.filter(c => c !== FX.base);
+  const buttons = [];
+
+  const sync = () => {
+    for (const b of buttons) b.classList.toggle("active", b.dataset.ccy === state.display);
+    menu.value = quick.includes(state.display) ? "" : state.display;
+    menu.classList.toggle("active", !quick.includes(state.display));
+  };
+
+  for (const code of quick) {
+    const button = el("button", "pill", code === "native" ? "Native" : code);
     button.dataset.ccy = code;
-    button.addEventListener("click", () => {
-      state.display = code;
-      wrap.querySelectorAll("button").forEach(b => b.classList.toggle("active", b === button));
-      refreshFx();
-    });
+    button.addEventListener("click", () => { state.display = code; sync(); refreshFx(); });
+    buttons.push(button);
     wrap.appendChild(button);
   }
+
+  const menu = document.createElement("select");
+  menu.className = "pill fx-more";
+  const blank = document.createElement("option");
+  blank.value = "";
+  blank.textContent = "Other…";
+  menu.appendChild(blank);
+  for (const code of others) {
+    const option = document.createElement("option");
+    option.value = code;
+    option.textContent = code;
+    menu.appendChild(option);
+  }
+  menu.addEventListener("change", () => {
+    if (!menu.value) return;
+    state.display = menu.value;
+    sync();
+    refreshFx();
+  });
+  wrap.appendChild(menu);
+
+  sync();
   return wrap;
 }
 
@@ -332,7 +369,9 @@ function accountNav() {
 }
 
 export function buildAccounts() {
-  const root = document.getElementById("accountsView");
+  // Only the cards: the positions region below them is markup the shell owns
+  // and the spread views render into, so it must survive this rebuild.
+  const root = document.getElementById("accountsCards");
   if (!DATA.accounts.length) return;
   root.innerHTML = "";
   acctTickers.length = 0;

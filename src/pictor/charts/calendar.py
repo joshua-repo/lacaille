@@ -29,7 +29,7 @@ import json
 import warnings
 from pathlib import Path
 
-from antlia.fx import DEFAULT_CURRENCIES, RateTable
+from antlia.fx import RateTable
 
 from pictor.accounts import AccountOverview
 from pictor.charts.gantt import DECISION_ZONE_DAYS
@@ -145,7 +145,14 @@ def _fx_data(rates: RateTable, accounts: list[AccountOverview]) -> dict:
     no rate never appears, so nothing on the page can be selected into a
     conversion that cannot be made.
     """
-    wanted = [*DEFAULT_CURRENCIES, *(a.currency for a in accounts if a.ok and a.currency)]
+    # Everything the table can actually price, pivot first, then the accounts'
+    # own currencies, then the rest. Derived from the table rather than from a
+    # list here, so adding a currency is a change at the fetch and nowhere else.
+    wanted = [
+        rates.base,
+        *(a.currency for a in accounts if a.ok and a.currency),
+        *sorted(rates.rates),
+    ]
     offered = [c for c in dict.fromkeys(wanted) if rates.has(c)]
     return {
         "base": rates.base,

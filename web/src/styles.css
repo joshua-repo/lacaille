@@ -1,39 +1,42 @@
   :root {
     color-scheme: light;
-    /* Bayswater Research brand: deep navy #16324A, slate #3B5A70,
-       copper accent #B05F3A / #D98A5C (dark), warm white #FAF9F7. */
+    /* Cool, not warm. The old ground was a cream/copper scheme lifted from the
+       logo; it read as vintage stationery next to numbers that update. The
+       navy survives (it is the brand's), the sepia does not: the plane is a
+       blue-grey, the glass is neutral white, and the accent is an electric
+       blue with a cyan/violet wash behind the panes. */
     /* Glass is a white-tinted film over whatever is behind it, not a solid
        panel with an opacity. Keeping the tint white in both themes is what
        makes the blur read as frosted glass rather than as a dimmed surface. */
-    --surface-1:      rgba(255, 255, 255, 0.38);
+    --surface-1:      rgba(255, 255, 255, 0.46);
     /* The specular hairline along a pane's top edge -- the single cheapest
        cue that a surface is glass and not paint. */
-    --edge:           rgba(255, 255, 255, 0.95);
-    --shade:          rgba(22, 50, 74, 0.16);
+    --edge:           rgba(255, 255, 255, 0.98);
+    --shade:          rgba(16, 34, 58, 0.14);
     --surface-solid:  #fdfcfa;
-    --page-plane:     #e3ddd3;
-    --text-primary:   #16324a;
-    --text-secondary: #4a6377;
-    --text-muted:     #8a99a4;
-    --gridline:       rgba(22, 50, 74, 0.09);
+    --page-plane:     #e4e9f0;
+    --text-primary:   #0e1f33;
+    --text-secondary: #45607a;
+    --text-muted:     #7d90a3;
+    --gridline:       rgba(16, 40, 70, 0.09);
     --baseline:       #c3c2b7;
-    --border:         rgba(22, 50, 74, 0.14);
+    --border:         rgba(16, 40, 70, 0.13);
     --good:           #0ca30c;
     --good-text:      #006300;
     --critical:       #d03b3b;
     --warning:        #fab219;
     --cat-orange:     #eb6834;
     --cat-yellow:     #eda100;
-    --accent:         #3b5a70;
-    --accent-wash:    rgba(59, 90, 112, 0.10);
-    --copper:         #b05f3a;
-    --copper-wash:    rgba(176, 95, 58, 0.12);
-    --glow:           rgba(59, 90, 112, 0.28);
+    --accent:         #1f6feb;
+    --accent-wash:    rgba(31, 111, 235, 0.11);
+    --copper:         #0aa2b8;
+    --copper-wash:    rgba(10, 162, 184, 0.13);
+    --glow:           rgba(31, 111, 235, 0.30);
     /* Ground-plane light. Saturated on purpose and only ever seen *through*
        the panes -- glass with nothing behind it is just a grey rectangle. */
-    --wash-a:         rgba(59, 90, 112, 0.44);
-    --wash-b:         rgba(176, 95, 58, 0.38);
-    --wash-c:         rgba(108, 142, 126, 0.34);
+    --wash-a:         rgba(31, 111, 235, 0.30);
+    --wash-b:         rgba(10, 162, 184, 0.28);
+    --wash-c:         rgba(109, 94, 240, 0.24);
     /* Saturation is what stops a heavy blur from turning the colour behind it
        to grey, and it is most of the difference between "frosted" and "foggy". */
     --blur: blur(30px) saturate(185%);
@@ -49,10 +52,10 @@
       --edge:           rgba(255, 255, 255, 0.28);
       --shade:          rgba(0, 0, 0, 0.28);
       --surface-solid:  #101c27;
-      --page-plane:     #070d14;
+      --page-plane:     #05080f;
       --text-primary:   #faf9f7;
-      --text-secondary: #9fb3c4;
-      --text-muted:     #62798c;
+      --text-secondary: #9db2c6;
+      --text-muted:     #6b8195;
       --gridline:       rgba(255, 255, 255, 0.10);
       --baseline:       #383835;
       --border:         rgba(255, 255, 255, 0.13);
@@ -62,14 +65,14 @@
       --warning:        #fab219;
       --cat-orange:     #d95926;
       --cat-yellow:     #c98500;
-      --accent:         #7ea0b8;
-      --accent-wash:    rgba(126, 160, 184, 0.16);
-      --copper:         #d98a5c;
-      --copper-wash:    rgba(217, 138, 92, 0.16);
-      --glow:           rgba(126, 160, 184, 0.45);
-      --wash-a:         rgba(126, 160, 184, 0.40);
-      --wash-b:         rgba(217, 138, 92, 0.30);
-      --wash-c:         rgba(90, 140, 150, 0.26);
+      --accent:         #58a6ff;
+      --accent-wash:    rgba(88, 166, 255, 0.18);
+      --copper:         #2fd4e8;
+      --copper-wash:    rgba(47, 212, 232, 0.16);
+      --glow:           rgba(88, 166, 255, 0.45);
+      --wash-a:         rgba(88, 166, 255, 0.34);
+      --wash-b:         rgba(47, 212, 232, 0.24);
+      --wash-c:         rgba(109, 94, 240, 0.26);
   }
 
   * { box-sizing: border-box; }
@@ -88,7 +91,7 @@
   .page {
     /* Wide by design: the calendar lays months out side by side, and a fixed
        1120px column left most of a widescreen empty. */
-    max-width: min(1760px, 94vw);
+    max-width: min(2120px, 96vw);
     margin: 0 auto;
     padding: 32px 20px 64px;
   }
@@ -646,6 +649,71 @@
     margin-bottom: 18px;
   }
   .acct-nav-row .fx-pick { margin-bottom: 0; }
+
+  .fx-more {
+    appearance: none;
+    -webkit-appearance: none;
+    /* Room for the chevron the rule below draws, plus enough width that a
+       three-letter code does not reflow the control when one is picked. */
+    padding: 5px 30px 5px 12px;
+    min-width: 84px;
+    /* A chevron drawn in the border colour, so the menu reads as one of the
+       pills beside it rather than as an operating-system control. */
+    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+                      linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position: calc(100% - 14px) 52%, calc(100% - 9px) 52%;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    font-family: inherit;
+  }
+  .fx-more.active {
+    background-color: var(--accent-wash);
+    border-color: var(--accent);
+    color: var(--text-primary);
+    box-shadow: 0 0 0 1px var(--accent), 0 0 14px var(--glow);
+  }
+
+  /* The expiry views fold in under the account cards: they are a way of
+     looking at positions, not a peer of the accounts that hold them. */
+  .region-title {
+    margin: 34px 0 16px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .fold { margin-bottom: 14px; }
+  .fold > summary {
+    cursor: pointer;
+    list-style: none;
+    padding: 11px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: var(--surface-1);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border: 1px solid var(--border);
+    box-shadow: inset 0 1px 0 var(--edge);
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    transition: color 0.15s, background 0.15s;
+  }
+  .fold > summary::-webkit-details-marker { display: none; }
+  .fold > summary::before {
+    content: "";
+    width: 0; height: 0;
+    border-left: 5px solid currentColor;
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+    transition: transform 0.15s;
+  }
+  .fold[open] > summary::before { transform: rotate(90deg); }
+  .fold > summary:hover { background: var(--accent-wash); color: var(--text-primary); }
+  .fold[open] > summary { color: var(--text-primary); }
+  .fold > div { padding-top: 16px; }
 
   .fx-pick {
     display: flex;

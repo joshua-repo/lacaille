@@ -11,7 +11,13 @@ from typing import Annotated
 import typer
 
 from antlia.auth.errors import AuthError
-from antlia.fx import DEFAULT_CURRENCIES, rates as fx_rates
+from antlia.fx import rates as fx_rates
+
+#: What the display-currency menu offers. antlia's own default set plus EUR --
+#: both of its sources carry it, and it is one of the three the picker is
+#: actually used for. Not pushed upstream: which currencies a dashboard offers
+#: is a display question, not a property of the rate providers.
+DISPLAY_CURRENCIES = ("USD", "GBP", "EUR", "HKD", "JPY")
 
 from pictor.accounts import fetch_overview, fetch_overviews
 from pictor.charts import build_calendar_html, build_chart
@@ -94,7 +100,7 @@ def calendar(
         held = {o.currency for o in overviews if o.ok and o.currency}
         held |= {h.currency for o in overviews if o.ok for h in o.holdings if h.currency}
         try:
-            rates = fx_rates(tuple(dict.fromkeys((*DEFAULT_CURRENCIES, *sorted(held)))))
+            rates = fx_rates(tuple(dict.fromkeys((*DISPLAY_CURRENCIES, *sorted(held)))))
         except AuthError:
             # antlia raises when it has no table at all, which is right for a
             # library -- "I could not answer" is not "the answer is nothing".

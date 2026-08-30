@@ -35,7 +35,7 @@
 })();
 const DATA = __PICTOR_DATA__;
 const FX = DATA.fx;
-const state = { workspace: "analysis", view: "calendar", selected: /* @__PURE__ */ new Set(), display: DATA.fx && DATA.fx.currencies[0] || "native", account: "all" };
+const state = { workspace: "analysis", view: "accounts", selected: /* @__PURE__ */ new Set(), display: DATA.fx && DATA.fx.currencies[0] || "native", account: "all" };
 const TK_NEUTRAL = 4.5;
 const tkOffset = (n) => "translateY(calc(var(--tk-h) * " + -n + "))";
 const tkTarget = (d) => tkOffset(9 - d);
@@ -189,17 +189,45 @@ function figure(value, format, cls) {
 function currencyPicker() {
   const wrap = el("div", "fx-pick");
   wrap.appendChild(el("span", "fl", "Show in"));
-  const options = [...FX.currencies, "native"];
-  for (const code of options) {
-    const button = el("button", "pill" + (code === state.display ? " active" : ""), code === "native" ? "Native" : code);
+  const quick = [FX.base, "native"];
+  const others = FX.currencies.filter((c) => c !== FX.base);
+  const buttons = [];
+  const sync = () => {
+    for (const b of buttons) b.classList.toggle("active", b.dataset.ccy === state.display);
+    menu.value = quick.includes(state.display) ? "" : state.display;
+    menu.classList.toggle("active", !quick.includes(state.display));
+  };
+  for (const code of quick) {
+    const button = el("button", "pill", code === "native" ? "Native" : code);
     button.dataset.ccy = code;
     button.addEventListener("click", () => {
       state.display = code;
-      wrap.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b === button));
+      sync();
       refreshFx();
     });
+    buttons.push(button);
     wrap.appendChild(button);
   }
+  const menu = document.createElement("select");
+  menu.className = "pill fx-more";
+  const blank = document.createElement("option");
+  blank.value = "";
+  blank.textContent = "Other…";
+  menu.appendChild(blank);
+  for (const code of others) {
+    const option = document.createElement("option");
+    option.value = code;
+    option.textContent = code;
+    menu.appendChild(option);
+  }
+  menu.addEventListener("change", () => {
+    if (!menu.value) return;
+    state.display = menu.value;
+    sync();
+    refreshFx();
+  });
+  wrap.appendChild(menu);
+  sync();
   return wrap;
 }
 function buildTotalCard(accounts) {
@@ -420,7 +448,7 @@ function accountNav() {
   return row;
 }
 function buildAccounts() {
-  const root = document.getElementById("accountsView");
+  const root = document.getElementById("accountsCards");
   if (!DATA.accounts.length) return;
   root.innerHTML = "";
   acctTickers.length = 0;
@@ -742,43 +770,57 @@ function buildStats(chips) {
     statTickers[i].set(s.value);
   });
 }
-const PLANNED = [
-  ["Backtests", "One strategy over a fixed window, with the dataset and its date range stated on the result."],
-  ["Parameter sweeps", "The same strategy across a grid of parameters, so the shape of the result is visible rather than one lucky cell."],
-  ["Deep dives", "One instrument, or a set of them, examined on their own terms -- chain, surface, history."]
-];
-function buildResearch() {
-  const root = document.getElementById("researchWs");
+function buildPlaceholder(root, { title, meta, tag, lede, items, note }) {
   if (root.childElementCount) return;
   const card = el("section", "acct placeholder");
   const head = el("div", "acct-hd");
   const left = el("div");
-  left.appendChild(el("h2", null, "Research"));
-  left.appendChild(el("div", "acct-meta", "fixed datasets · nothing here is live"));
+  left.appendChild(el("h2", null, title));
+  left.appendChild(el("div", "acct-meta", meta));
   head.appendChild(left);
-  head.appendChild(el("span", "acct-tag", "waiting on vela"));
+  if (tag) head.appendChild(el("span", "acct-tag", tag));
   card.appendChild(head);
   const body = el("div", "acct-rows");
-  body.appendChild(el(
-    "p",
-    "ph-lede",
-    "Analysis answers what you hold right now, off a broker snapshot that is stale the moment it is read. Research answers what a strategy would have done, off a dataset that does not move -- which is the whole reason a backtest can be repeated."
-  ));
+  body.appendChild(el("p", "ph-lede", lede));
   const list = el("div", "ph-list");
-  for (const [name, what] of PLANNED) {
+  for (const [name, what] of items) {
     const item = el("div", "ph-item");
     item.appendChild(el("div", "sym", name));
     item.appendChild(el("div", "qty", what));
     list.appendChild(item);
   }
   body.appendChild(list);
-  body.appendChild(el(
-    "div",
-    "note",
-    "Vela computes these; pictor renders them. Until it lands there is deliberately nothing to click here."
-  ));
+  if (note) body.appendChild(el("div", "note", note));
   card.appendChild(body);
   root.appendChild(card);
+}
+function buildMarket() {
+  buildPlaceholder(document.getElementById("marketView"), {
+    title: "Market",
+    meta: "live, like Accounts · not yet wired",
+    tag: "needs antlia.market",
+    lede: "Accounts answers what you hold. Market answers what is happening to the things you hold, or might: quotes, chains, surfaces, the calendar of events that moves them. It is live data like Accounts, which is why it belongs in this workspace and not in Research.",
+    items: [
+      ["Quotes and chains", "Prices and option chains per underlying, through one rate-limited session rather than a scraper per caller."],
+      ["Volatility surface", "Strike by expiry by IV, for the underlyings actually held or watched."],
+      ["Events", "Earnings and headlines -- today pictor fetches these itself, bypassing antlia's session and pacing entirely."]
+    ],
+    note: "Blocked on a market layer in antlia; nothing here is faked in the meantime."
+  });
+}
+function buildResearch() {
+  buildPlaceholder(document.getElementById("researchWs"), {
+    title: "Research",
+    meta: "fixed datasets · nothing here is live",
+    tag: "waiting on vela",
+    lede: "Analysis answers what you hold right now, off a broker snapshot that is stale the moment it is read. Research answers what a strategy would have done, off a dataset that does not move -- which is the whole reason a backtest can be repeated.",
+    items: [
+      ["Backtests", "One strategy over a fixed window, with the dataset and its date range stated on the result."],
+      ["Parameter sweeps", "The same strategy across a grid of parameters, so the shape of the result is visible rather than one lucky cell."],
+      ["Deep dives", "One instrument, or a set of them, examined on their own terms -- chain, surface, history."]
+    ],
+    note: "Vela computes these; pictor renders them. Until it lands there is deliberately nothing to click here."
+  });
 }
 function buildTable(chips) {
   const root = document.getElementById("tableView");
@@ -850,59 +892,58 @@ function setSubtitle() {
 }
 setSubtitle();
 const views = {
-  calendar: document.getElementById("calendarView"),
-  gantt: document.getElementById("ganttView"),
-  table: document.getElementById("tableView"),
-  accounts: document.getElementById("accountsView")
+  accounts: document.getElementById("accountsView"),
+  market: document.getElementById("marketView")
 };
-if (DATA.accounts.length) document.getElementById("accountsTab").classList.remove("hidden");
 document.getElementById("views").addEventListener("click", (e) => {
   const btn = e.target.closest("button[data-view]");
   if (!btn) return;
   state.view = btn.dataset.view;
   document.querySelectorAll("#views button").forEach((b) => b.classList.toggle("active", b === btn));
   for (const [name, node] of Object.entries(views)) node.classList.toggle("hidden", name !== state.view);
-  const spreadView = state.view !== "accounts";
-  document.querySelectorAll(".spread-only").forEach((node) => node.classList.toggle("hidden", !spreadView));
-  if (state.view === "accounts") acctTickers.forEach((ticker) => ticker.replay());
+  if (state.view === "market") buildMarket();
+  else acctTickers.forEach((ticker) => ticker.replay());
 });
 render();</script>
   <style rel="stylesheet" crossorigin>:root {
     color-scheme: light;
-    /* Bayswater Research brand: deep navy #16324A, slate #3B5A70,
-       copper accent #B05F3A / #D98A5C (dark), warm white #FAF9F7. */
+    /* Cool, not warm. The old ground was a cream/copper scheme lifted from the
+       logo; it read as vintage stationery next to numbers that update. The
+       navy survives (it is the brand's), the sepia does not: the plane is a
+       blue-grey, the glass is neutral white, and the accent is an electric
+       blue with a cyan/violet wash behind the panes. */
     /* Glass is a white-tinted film over whatever is behind it, not a solid
        panel with an opacity. Keeping the tint white in both themes is what
        makes the blur read as frosted glass rather than as a dimmed surface. */
-    --surface-1:      rgba(255, 255, 255, 0.38);
+    --surface-1:      rgba(255, 255, 255, 0.46);
     /* The specular hairline along a pane's top edge -- the single cheapest
        cue that a surface is glass and not paint. */
-    --edge:           rgba(255, 255, 255, 0.95);
-    --shade:          rgba(22, 50, 74, 0.16);
+    --edge:           rgba(255, 255, 255, 0.98);
+    --shade:          rgba(16, 34, 58, 0.14);
     --surface-solid:  #fdfcfa;
-    --page-plane:     #e3ddd3;
-    --text-primary:   #16324a;
-    --text-secondary: #4a6377;
-    --text-muted:     #8a99a4;
-    --gridline:       rgba(22, 50, 74, 0.09);
+    --page-plane:     #e4e9f0;
+    --text-primary:   #0e1f33;
+    --text-secondary: #45607a;
+    --text-muted:     #7d90a3;
+    --gridline:       rgba(16, 40, 70, 0.09);
     --baseline:       #c3c2b7;
-    --border:         rgba(22, 50, 74, 0.14);
+    --border:         rgba(16, 40, 70, 0.13);
     --good:           #0ca30c;
     --good-text:      #006300;
     --critical:       #d03b3b;
     --warning:        #fab219;
     --cat-orange:     #eb6834;
     --cat-yellow:     #eda100;
-    --accent:         #3b5a70;
-    --accent-wash:    rgba(59, 90, 112, 0.10);
-    --copper:         #b05f3a;
-    --copper-wash:    rgba(176, 95, 58, 0.12);
-    --glow:           rgba(59, 90, 112, 0.28);
+    --accent:         #1f6feb;
+    --accent-wash:    rgba(31, 111, 235, 0.11);
+    --copper:         #0aa2b8;
+    --copper-wash:    rgba(10, 162, 184, 0.13);
+    --glow:           rgba(31, 111, 235, 0.30);
     /* Ground-plane light. Saturated on purpose and only ever seen *through*
        the panes -- glass with nothing behind it is just a grey rectangle. */
-    --wash-a:         rgba(59, 90, 112, 0.44);
-    --wash-b:         rgba(176, 95, 58, 0.38);
-    --wash-c:         rgba(108, 142, 126, 0.34);
+    --wash-a:         rgba(31, 111, 235, 0.30);
+    --wash-b:         rgba(10, 162, 184, 0.28);
+    --wash-c:         rgba(109, 94, 240, 0.24);
     /* Saturation is what stops a heavy blur from turning the colour behind it
        to grey, and it is most of the difference between "frosted" and "foggy". */
     --blur: blur(30px) saturate(185%);
@@ -918,10 +959,10 @@ render();</script>
       --edge:           rgba(255, 255, 255, 0.28);
       --shade:          rgba(0, 0, 0, 0.28);
       --surface-solid:  #101c27;
-      --page-plane:     #070d14;
+      --page-plane:     #05080f;
       --text-primary:   #faf9f7;
-      --text-secondary: #9fb3c4;
-      --text-muted:     #62798c;
+      --text-secondary: #9db2c6;
+      --text-muted:     #6b8195;
       --gridline:       rgba(255, 255, 255, 0.10);
       --baseline:       #383835;
       --border:         rgba(255, 255, 255, 0.13);
@@ -931,14 +972,14 @@ render();</script>
       --warning:        #fab219;
       --cat-orange:     #d95926;
       --cat-yellow:     #c98500;
-      --accent:         #7ea0b8;
-      --accent-wash:    rgba(126, 160, 184, 0.16);
-      --copper:         #d98a5c;
-      --copper-wash:    rgba(217, 138, 92, 0.16);
-      --glow:           rgba(126, 160, 184, 0.45);
-      --wash-a:         rgba(126, 160, 184, 0.40);
-      --wash-b:         rgba(217, 138, 92, 0.30);
-      --wash-c:         rgba(90, 140, 150, 0.26);
+      --accent:         #58a6ff;
+      --accent-wash:    rgba(88, 166, 255, 0.18);
+      --copper:         #2fd4e8;
+      --copper-wash:    rgba(47, 212, 232, 0.16);
+      --glow:           rgba(88, 166, 255, 0.45);
+      --wash-a:         rgba(88, 166, 255, 0.34);
+      --wash-b:         rgba(47, 212, 232, 0.24);
+      --wash-c:         rgba(109, 94, 240, 0.26);
   }
 
   * { box-sizing: border-box; }
@@ -957,7 +998,7 @@ render();</script>
   .page {
     /* Wide by design: the calendar lays months out side by side, and a fixed
        1120px column left most of a widescreen empty. */
-    max-width: min(1760px, 94vw);
+    max-width: min(2120px, 96vw);
     margin: 0 auto;
     padding: 32px 20px 64px;
   }
@@ -1516,6 +1557,71 @@ render();</script>
   }
   .acct-nav-row .fx-pick { margin-bottom: 0; }
 
+  .fx-more {
+    appearance: none;
+    -webkit-appearance: none;
+    /* Room for the chevron the rule below draws, plus enough width that a
+       three-letter code does not reflow the control when one is picked. */
+    padding: 5px 30px 5px 12px;
+    min-width: 84px;
+    /* A chevron drawn in the border colour, so the menu reads as one of the
+       pills beside it rather than as an operating-system control. */
+    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+                      linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position: calc(100% - 14px) 52%, calc(100% - 9px) 52%;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    font-family: inherit;
+  }
+  .fx-more.active {
+    background-color: var(--accent-wash);
+    border-color: var(--accent);
+    color: var(--text-primary);
+    box-shadow: 0 0 0 1px var(--accent), 0 0 14px var(--glow);
+  }
+
+  /* The expiry views fold in under the account cards: they are a way of
+     looking at positions, not a peer of the accounts that hold them. */
+  .region-title {
+    margin: 34px 0 16px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .fold { margin-bottom: 14px; }
+  .fold > summary {
+    cursor: pointer;
+    list-style: none;
+    padding: 11px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: var(--surface-1);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border: 1px solid var(--border);
+    box-shadow: inset 0 1px 0 var(--edge);
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    transition: color 0.15s, background 0.15s;
+  }
+  .fold > summary::-webkit-details-marker { display: none; }
+  .fold > summary::before {
+    content: "";
+    width: 0; height: 0;
+    border-left: 5px solid currentColor;
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+    transition: transform 0.15s;
+  }
+  .fold[open] > summary::before { transform: rotate(90deg); }
+  .fold > summary:hover { background: var(--accent-wash); color: var(--text-primary); }
+  .fold[open] > summary { color: var(--text-primary); }
+  .fold > div { padding-top: 16px; }
+
   .fx-pick {
     display: flex;
     align-items: center;
@@ -1622,33 +1728,54 @@ render();</script>
   </header>
 
   <div class="ws-pane" id="analysisWs">
+    <!--
+      Inside Analysis the split is what you own versus what the market is doing.
+      The expiry views are not a peer of Accounts -- they are a way of looking
+      at the positions an account holds -- so they fold in underneath it.
+    -->
     <div class="viewbar">
       <div class="views" id="views">
-        <button data-view="calendar" class="active">Calendar</button>
-        <button data-view="gantt">Gantt</button>
-        <button data-view="table">Table</button>
-        <button data-view="accounts" id="accountsTab" class="hidden">Accounts</button>
+        <button data-view="accounts" class="active">Accounts</button>
+        <button data-view="market">Market</button>
       </div>
     </div>
 
-    <div class="filters spread-only" id="filters">
-      <span class="fl">Underlying</span>
+    <div id="accountsView">
+      <div id="accountsCards"></div>
+
+      <div class="positions" id="positions">
+        <h2 class="region-title">Positions</h2>
+
+        <div class="filters" id="filters">
+          <span class="fl">Underlying</span>
+        </div>
+
+        <div class="stats" id="stats"></div>
+
+        <div class="legend">
+          <span class="item"><span class="dot" style="background:var(--good)"></span>Net gain</span>
+          <span class="item"><span class="dot" style="background:var(--critical)"></span>Net loss</span>
+          <span class="item"><span class="ring"></span>In decision zone</span>
+          <span class="item"><span class="diamond"></span>Earnings before expiry</span>
+          <span class="item"><svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.9-6.3 3.9 1.7-7L2 9.2l7.1-.6z"/></svg>Recent headline</span>
+        </div>
+
+        <details class="fold" open>
+          <summary>Expiry calendar</summary>
+          <div id="calendarView"></div>
+        </details>
+        <details class="fold">
+          <summary>Timeline</summary>
+          <div id="ganttView"></div>
+        </details>
+        <details class="fold">
+          <summary>Table</summary>
+          <div id="tableView"></div>
+        </details>
+      </div>
     </div>
 
-    <div class="stats spread-only" id="stats"></div>
-
-    <div class="legend spread-only">
-      <span class="item"><span class="dot" style="background:var(--good)"></span>Net gain</span>
-      <span class="item"><span class="dot" style="background:var(--critical)"></span>Net loss</span>
-      <span class="item"><span class="ring"></span>In decision zone</span>
-      <span class="item"><span class="diamond"></span>Earnings before expiry</span>
-      <span class="item"><svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.9-6.3 3.9 1.7-7L2 9.2l7.1-.6z"/></svg>Recent headline</span>
-    </div>
-
-    <div id="calendarView"></div>
-    <div id="ganttView" class="hidden"></div>
-    <div id="tableView" class="hidden"></div>
-    <div id="accountsView" class="hidden"></div>
+    <div id="marketView" class="hidden"></div>
   </div>
 
   <div class="ws-pane hidden" id="researchWs"></div>
