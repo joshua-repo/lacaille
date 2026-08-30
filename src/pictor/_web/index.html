@@ -35,7 +35,7 @@
 })();
 const DATA = __PICTOR_DATA__;
 const FX = DATA.fx;
-const state = { view: "calendar", selected: /* @__PURE__ */ new Set(), display: DATA.fx && DATA.fx.currencies[0] || "native" };
+const state = { view: "calendar", selected: /* @__PURE__ */ new Set(), display: DATA.fx && DATA.fx.currencies[0] || "native", account: "all" };
 const TK_NEUTRAL = 4.5;
 const tkOffset = (n) => "translateY(calc(var(--tk-h) * " + -n + "))";
 const tkTarget = (d) => tkOffset(9 - d);
@@ -283,7 +283,7 @@ function buildTotalCard(accounts) {
   card.appendChild(rows);
   return card;
 }
-function buildAccountCard(a) {
+function buildAccountCard(a, detail = true) {
   const card = el("section", "acct" + (a.ok ? "" : " failed"));
   const head = el("div", "acct-hd");
   const left = el("div");
@@ -351,7 +351,7 @@ function buildAccountCard(a) {
     body.appendChild(cell("Account type", el("span", "value-sm", "Cash"), "no margin reported"));
   }
   card.appendChild(body);
-  if (a.holdings.length) {
+  if (detail && a.holdings.length) {
     const rows = el("div", "acct-rows");
     rows.appendChild(el("h3", null, "Top holdings"));
     const peak = Math.max(...a.holdings.map((h) => Math.abs(h.baseValue || 0)), 1);
@@ -378,7 +378,7 @@ function buildAccountCard(a) {
     }
     card.appendChild(rows);
   }
-  if (a.currencies.length > 1) {
+  if (detail && a.currencies.length > 1) {
     const rows = el("div", "acct-rows");
     rows.appendChild(el("h3", null, "Currencies"));
     for (const cur of a.currencies) {
@@ -393,12 +393,31 @@ function buildAccountCard(a) {
     }
     card.appendChild(rows);
   }
-  if (a.unavailable.length) {
+  if (detail && a.unavailable.length) {
     const note = el("div", "acct-rows");
     note.appendChild(el("div", "note", "Not permitted by this key: " + a.unavailable.join("; ")));
     card.appendChild(note);
   }
   return card;
+}
+function accountNav() {
+  const row = el("div", "acct-nav-row");
+  const nav = el("div", "views");
+  const tabs = [
+    { key: "all", label: "All accounts" },
+    ...DATA.accounts.map((a) => ({ key: a.source, label: a.label }))
+  ];
+  for (const t of tabs) {
+    const button = el("button", state.account === t.key ? "active" : "", t.label);
+    button.addEventListener("click", () => {
+      state.account = t.key;
+      buildAccounts();
+    });
+    nav.appendChild(button);
+  }
+  row.appendChild(nav);
+  if (FX) row.appendChild(currencyPicker());
+  return row;
 }
 function buildAccounts() {
   const root = document.getElementById("accountsView");
@@ -406,10 +425,17 @@ function buildAccounts() {
   root.innerHTML = "";
   acctTickers.length = 0;
   fxNodes.length = 0;
-  if (FX) root.appendChild(currencyPicker());
-  const total = buildTotalCard(DATA.accounts);
-  if (total) root.appendChild(total);
-  for (const a of DATA.accounts) root.appendChild(buildAccountCard(a));
+  root.appendChild(DATA.accounts.length > 1 ? accountNav() : FX ? currencyPicker() : el("div"));
+  if (state.account === "all") {
+    const total = buildTotalCard(DATA.accounts);
+    if (total) root.appendChild(total);
+    const grid = el("div", "acct-grid");
+    for (const a of DATA.accounts) grid.appendChild(buildAccountCard(a, false));
+    root.appendChild(grid);
+  } else {
+    const one = DATA.accounts.find((a) => a.source === state.account);
+    root.appendChild(buildAccountCard(one || DATA.accounts[0]));
+  }
   refreshFx();
 }
 const tooltipEl = document.getElementById("tooltip");
@@ -1391,6 +1417,27 @@ render();</script>
   /* The combined card is an assertion the others are not -- it adds numbers
      from different currencies together -- so it is marked out as one. */
   .acct.total { border-color: var(--accent); }
+  /* Accounts side by side. The All view is meant to fit one screen, which is
+     why its cards are compact -- a holdings list is what makes a card taller
+     than a viewport, and it lives in the per-account tabs instead. */
+  .acct-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(430px, 1fr));
+    gap: 22px;
+    align-items: start;
+  }
+  .acct-grid .acct { margin-bottom: 0; }
+
+  .acct-nav-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  .acct-nav-row .fx-pick { margin-bottom: 0; }
+
   .fx-pick {
     display: flex;
     align-items: center;

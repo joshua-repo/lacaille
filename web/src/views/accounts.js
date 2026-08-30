@@ -177,7 +177,11 @@ export function buildTotalCard(accounts) {
   return card;
 }
 
-export function buildAccountCard(a) {
+/* `detail` off gives the compact card the All view uses: the figures, without
+   the holdings and currency breakdowns. Those lists are what make a card taller
+   than a screen, and the point of the All view is to see both accounts at once
+   without scrolling -- the per-account tabs are where the detail lives. */
+export function buildAccountCard(a, detail = true) {
   const card = el("section", "acct" + (a.ok ? "" : " failed"));
 
   const head = el("div", "acct-hd");
@@ -245,7 +249,7 @@ export function buildAccountCard(a) {
   }
   card.appendChild(body);
 
-  if (a.holdings.length) {
+  if (detail && a.holdings.length) {
     const rows = el("div", "acct-rows");
     rows.appendChild(el("h3", null, "Top holdings"));
     // Ranked on the account-base value, so a JPY line and a USD line are
@@ -277,7 +281,7 @@ export function buildAccountCard(a) {
     card.appendChild(rows);
   }
 
-  if (a.currencies.length > 1) {
+  if (detail && a.currencies.length > 1) {
     const rows = el("div", "acct-rows");
     rows.appendChild(el("h3", null, "Currencies"));
     // Native throughout on purpose: this section exists to show the split
@@ -295,7 +299,7 @@ export function buildAccountCard(a) {
     card.appendChild(rows);
   }
 
-  if (a.unavailable.length) {
+  if (detail && a.unavailable.length) {
     const note = el("div", "acct-rows");
     // Worth stating rather than hiding: it is why a list is empty.
     note.appendChild(el("div", "note", "Not permitted by this key: " + a.unavailable.join("; ")));
@@ -304,18 +308,50 @@ export function buildAccountCard(a) {
   return card;
 }
 
+/* Which accounts are on screen: "all" for the side-by-side overview, or one
+   broker's own tab. Navigation, so it gets the segmented control the top-level
+   tabs use; the currency picker beside it is a modifier, so it stays pills. */
+function accountNav() {
+  const row = el("div", "acct-nav-row");
+  const nav = el("div", "views");
+  const tabs = [{key: "all", label: "All accounts"},
+                ...DATA.accounts.map(a => ({key: a.source, label: a.label}))];
+  for (const t of tabs) {
+    const button = el("button", state.account === t.key ? "active" : "", t.label);
+    button.addEventListener("click", () => {
+      state.account = t.key;
+      // A full rebuild, which also re-rolls every ticker -- switching account
+      // is exactly the moment the numbers should announce themselves.
+      buildAccounts();
+    });
+    nav.appendChild(button);
+  }
+  row.appendChild(nav);
+  if (FX) row.appendChild(currencyPicker());
+  return row;
+}
+
 export function buildAccounts() {
   const root = document.getElementById("accountsView");
   if (!DATA.accounts.length) return;
   root.innerHTML = "";
   acctTickers.length = 0;
   fxNodes.length = 0;
-  // The picker sits above everything, not inside the combined card: it drives
-  // every card on the tab, and a single readable account (the other broker
-  // down, or only one configured) still wants its own currency switched.
-  if (FX) root.appendChild(currencyPicker());
-  const total = buildTotalCard(DATA.accounts);
-  if (total) root.appendChild(total);
-  for (const a of DATA.accounts) root.appendChild(buildAccountCard(a));
+
+  // The nav row drives every card below it, so it sits above all of them --
+  // and a single readable account (the other broker down, or only one
+  // configured) still wants its own currency switched.
+  root.appendChild(DATA.accounts.length > 1 ? accountNav() : (FX ? currencyPicker() : el("div")));
+
+  if (state.account === "all") {
+    const total = buildTotalCard(DATA.accounts);
+    if (total) root.appendChild(total);
+    const grid = el("div", "acct-grid");
+    for (const a of DATA.accounts) grid.appendChild(buildAccountCard(a, false));
+    root.appendChild(grid);
+  } else {
+    const one = DATA.accounts.find(a => a.source === state.account);
+    root.appendChild(buildAccountCard(one || DATA.accounts[0]));
+  }
   refreshFx();
 }

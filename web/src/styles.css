@@ -605,6 +605,27 @@
   /* The combined card is an assertion the others are not -- it adds numbers
      from different currencies together -- so it is marked out as one. */
   .acct.total { border-color: var(--accent); }
+  /* Accounts side by side. The All view is meant to fit one screen, which is
+     why its cards are compact -- a holdings list is what makes a card taller
+     than a viewport, and it lives in the per-account tabs instead. */
+  .acct-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(430px, 1fr));
+    gap: 22px;
+    align-items: start;
+  }
+  .acct-grid .acct { margin-bottom: 0; }
+
+  .acct-nav-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  .acct-nav-row .fx-pick { margin-bottom: 0; }
+
   .fx-pick {
     display: flex;
     align-items: center;
