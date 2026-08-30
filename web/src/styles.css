@@ -273,7 +273,7 @@
      a day cell (a seventh of it) can no longer hold a chip. */
   .months {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(660px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(624px, 1fr));
     gap: 24px;
     align-items: start;
   }
@@ -306,7 +306,7 @@
   }
   .week-row:last-child { border-bottom: none; }
   .day {
-    min-height: 74px;
+    min-height: 62px;
     padding: 6px;
     border-right: 1px solid var(--gridline);
     display: flex;
@@ -338,15 +338,26 @@
     background: var(--surface-solid);
     border: 1px solid var(--border);
     border-left: 3px solid var(--good);
-    padding: 3px 7px 3px 6px;
+    padding: 3px 6px 3px 5px;
     cursor: default;
     transition: box-shadow 0.15s;
+    /* Three months across means a day cell is ~92px, and "100/120 · 12d" wrapped
+       to a third line at the old size. The strike line shrinks and stops
+       wrapping instead: an overflowing chip is better than a chip that makes
+       every dense day twice as tall. */
+    overflow: hidden;
   }
   .chip:hover { box-shadow: 0 0 0 1px var(--border), 0 4px 16px rgba(0,0,0,0.12); }
   .chip.loss { border-left-color: var(--critical); }
   .chip.zone { box-shadow: 0 0 0 2px var(--warning), 0 0 10px rgba(250,178,25,0.35); }
-  .chip .tk { font-size: 11.5px; font-weight: 600; }
-  .chip .strikes { font-size: 10.5px; color: var(--text-secondary); }
+  .chip .tk { font-size: 11.5px; font-weight: 600; line-height: 1.35; }
+  .chip .strikes {
+    font-size: 9.5px;
+    line-height: 1.3;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    letter-spacing: -0.01em;
+  }
   .chip .badges {
     position: absolute;
     top: 3px; right: 4px;
@@ -684,6 +695,35 @@
     color: var(--text-muted);
   }
   .fold { margin-bottom: 14px; }
+  .fold.region { margin-bottom: 26px; }
+  .fold.region > summary {
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    justify-content: flex-start;
+  }
+  /* The combined figure rides on the summary so collapsing the block does not
+     cost you the one number you most likely wanted to keep. */
+  .fold-sum {
+    margin-left: auto;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+  }
+  .fold.region[open] > summary .fold-sum { opacity: 0; }
+
+  .region-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .region-head .region-title { margin-bottom: 16px; }
   .fold > summary {
     cursor: pointer;
     list-style: none;

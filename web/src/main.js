@@ -58,6 +58,21 @@ export const views = {
   market: document.getElementById("marketView"),
 };
 
+/* The three expiry views share one slot. Stacking them was three screens of
+   scrolling to answer a question any one of them answers on its own. */
+const posViews = {
+  calendar: document.getElementById("calendarView"),
+  gantt: document.getElementById("ganttView"),
+  table: document.getElementById("tableView"),
+};
+document.getElementById("posViews").addEventListener("click", e => {
+  const btn = e.target.closest("button[data-pos]");
+  if (!btn) return;
+  state.positions = btn.dataset.pos;
+  document.querySelectorAll("#posViews button").forEach(b => b.classList.toggle("active", b === btn));
+  for (const [name, node] of Object.entries(posViews)) node.classList.toggle("hidden", name !== state.positions);
+});
+
 document.getElementById("views").addEventListener("click", e => {
   const btn = e.target.closest("button[data-view]");
   if (!btn) return;

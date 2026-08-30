@@ -35,7 +35,7 @@
 })();
 const DATA = __PICTOR_DATA__;
 const FX = DATA.fx;
-const state = { workspace: "analysis", view: "accounts", selected: /* @__PURE__ */ new Set(), display: DATA.fx && DATA.fx.currencies[0] || "native", account: "all" };
+const state = { workspace: "analysis", view: "accounts", positions: "calendar", selected: /* @__PURE__ */ new Set(), display: DATA.fx && DATA.fx.currencies[0] || "native", account: "all" };
 const TK_NEUTRAL = 4.5;
 const tkOffset = (n) => "translateY(calc(var(--tk-h) * " + -n + "))";
 const tkTarget = (d) => tkOffset(9 - d);
@@ -454,6 +454,27 @@ function buildAccounts() {
   acctTickers.length = 0;
   fxNodes.length = 0;
   root.appendChild(DATA.accounts.length > 1 ? accountNav() : FX ? currencyPicker() : el("div"));
+  const summary = document.getElementById("accountsSum");
+  if (summary) {
+    const readable = DATA.accounts.filter((a) => a.ok);
+    fxNodes.push(() => {
+      const target = state.display === "native" ? FX ? FX.base : null : state.display;
+      if (!target) {
+        summary.textContent = "";
+        return;
+      }
+      let total = 0;
+      for (const a of readable) {
+        const value = convert(a.netLiquidation, a.currency, target);
+        if (value === null) {
+          summary.textContent = "";
+          return;
+        }
+        total += value;
+      }
+      summary.textContent = fmtCcy(total, target);
+    });
+  }
   if (state.account === "all") {
     const total = buildTotalCard(DATA.accounts);
     if (total) root.appendChild(total);
@@ -895,6 +916,18 @@ const views = {
   accounts: document.getElementById("accountsView"),
   market: document.getElementById("marketView")
 };
+const posViews = {
+  calendar: document.getElementById("calendarView"),
+  gantt: document.getElementById("ganttView"),
+  table: document.getElementById("tableView")
+};
+document.getElementById("posViews").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-pos]");
+  if (!btn) return;
+  state.positions = btn.dataset.pos;
+  document.querySelectorAll("#posViews button").forEach((b) => b.classList.toggle("active", b === btn));
+  for (const [name, node] of Object.entries(posViews)) node.classList.toggle("hidden", name !== state.positions);
+});
 document.getElementById("views").addEventListener("click", (e) => {
   const btn = e.target.closest("button[data-view]");
   if (!btn) return;
@@ -1180,7 +1213,7 @@ render();</script>
      a day cell (a seventh of it) can no longer hold a chip. */
   .months {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(660px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(624px, 1fr));
     gap: 24px;
     align-items: start;
   }
@@ -1213,7 +1246,7 @@ render();</script>
   }
   .week-row:last-child { border-bottom: none; }
   .day {
-    min-height: 74px;
+    min-height: 62px;
     padding: 6px;
     border-right: 1px solid var(--gridline);
     display: flex;
@@ -1245,15 +1278,26 @@ render();</script>
     background: var(--surface-solid);
     border: 1px solid var(--border);
     border-left: 3px solid var(--good);
-    padding: 3px 7px 3px 6px;
+    padding: 3px 6px 3px 5px;
     cursor: default;
     transition: box-shadow 0.15s;
+    /* Three months across means a day cell is ~92px, and "100/120 · 12d" wrapped
+       to a third line at the old size. The strike line shrinks and stops
+       wrapping instead: an overflowing chip is better than a chip that makes
+       every dense day twice as tall. */
+    overflow: hidden;
   }
   .chip:hover { box-shadow: 0 0 0 1px var(--border), 0 4px 16px rgba(0,0,0,0.12); }
   .chip.loss { border-left-color: var(--critical); }
   .chip.zone { box-shadow: 0 0 0 2px var(--warning), 0 0 10px rgba(250,178,25,0.35); }
-  .chip .tk { font-size: 11.5px; font-weight: 600; }
-  .chip .strikes { font-size: 10.5px; color: var(--text-secondary); }
+  .chip .tk { font-size: 11.5px; font-weight: 600; line-height: 1.35; }
+  .chip .strikes {
+    font-size: 9.5px;
+    line-height: 1.3;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    letter-spacing: -0.01em;
+  }
   .chip .badges {
     position: absolute;
     top: 3px; right: 4px;
@@ -1591,6 +1635,35 @@ render();</script>
     color: var(--text-muted);
   }
   .fold { margin-bottom: 14px; }
+  .fold.region { margin-bottom: 26px; }
+  .fold.region > summary {
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    justify-content: flex-start;
+  }
+  /* The combined figure rides on the summary so collapsing the block does not
+     cost you the one number you most likely wanted to keep. */
+  .fold-sum {
+    margin-left: auto;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+  }
+  .fold.region[open] > summary .fold-sum { opacity: 0; }
+
+  .region-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .region-head .region-title { margin-bottom: 16px; }
   .fold > summary {
     cursor: pointer;
     list-style: none;
@@ -1741,10 +1814,25 @@ render();</script>
     </div>
 
     <div id="accountsView">
-      <div id="accountsCards"></div>
+      <details class="fold region" id="accountsFold" open>
+        <summary>Accounts<span class="fold-sum" id="accountsSum"></span></summary>
+        <div id="accountsCards"></div>
+      </details>
 
       <div class="positions" id="positions">
-        <h2 class="region-title">Positions</h2>
+        <!--
+          One view at a time, not three stacked. Three open panels is three
+          screens of scrolling; the question "when does this expire" is answered
+          by one of these at a time anyway.
+        -->
+        <div class="region-head">
+          <h2 class="region-title">Positions</h2>
+          <div class="views" id="posViews">
+            <button data-pos="calendar" class="active">Calendar</button>
+            <button data-pos="gantt">Timeline</button>
+            <button data-pos="table">Table</button>
+          </div>
+        </div>
 
         <div class="filters" id="filters">
           <span class="fl">Underlying</span>
@@ -1760,18 +1848,9 @@ render();</script>
           <span class="item"><svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.9-6.3 3.9 1.7-7L2 9.2l7.1-.6z"/></svg>Recent headline</span>
         </div>
 
-        <details class="fold" open>
-          <summary>Expiry calendar</summary>
-          <div id="calendarView"></div>
-        </details>
-        <details class="fold">
-          <summary>Timeline</summary>
-          <div id="ganttView"></div>
-        </details>
-        <details class="fold">
-          <summary>Table</summary>
-          <div id="tableView"></div>
-        </details>
+        <div id="calendarView"></div>
+        <div id="ganttView" class="hidden"></div>
+        <div id="tableView" class="hidden"></div>
       </div>
     </div>
 

@@ -41,10 +41,25 @@
     </div>
 
     <div id="accountsView">
-      <div id="accountsCards"></div>
+      <details class="fold region" id="accountsFold" open>
+        <summary>Accounts<span class="fold-sum" id="accountsSum"></span></summary>
+        <div id="accountsCards"></div>
+      </details>
 
       <div class="positions" id="positions">
-        <h2 class="region-title">Positions</h2>
+        <!--
+          One view at a time, not three stacked. Three open panels is three
+          screens of scrolling; the question "when does this expire" is answered
+          by one of these at a time anyway.
+        -->
+        <div class="region-head">
+          <h2 class="region-title">Positions</h2>
+          <div class="views" id="posViews">
+            <button data-pos="calendar" class="active">Calendar</button>
+            <button data-pos="gantt">Timeline</button>
+            <button data-pos="table">Table</button>
+          </div>
+        </div>
 
         <div class="filters" id="filters">
           <span class="fl">Underlying</span>
@@ -60,18 +75,9 @@
           <span class="item"><svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.9-6.3 3.9 1.7-7L2 9.2l7.1-.6z"/></svg>Recent headline</span>
         </div>
 
-        <details class="fold" open>
-          <summary>Expiry calendar</summary>
-          <div id="calendarView"></div>
-        </details>
-        <details class="fold">
-          <summary>Timeline</summary>
-          <div id="ganttView"></div>
-        </details>
-        <details class="fold">
-          <summary>Table</summary>
-          <div id="tableView"></div>
-        </details>
+        <div id="calendarView"></div>
+        <div id="ganttView" class="hidden"></div>
+        <div id="tableView" class="hidden"></div>
       </div>
     </div>
 
