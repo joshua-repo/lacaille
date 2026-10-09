@@ -45,6 +45,49 @@ def calendar(
         _serve_and_open(output)
 
 
+@app.command()
+def post(
+    question: Annotated[Path, typer.Argument(help="The registered question.toml, committed in its posts repo.")],
+    runs: Annotated[Path | None, typer.Option(help="vela runs root (default: $VELA_RUNS, else ~/.vela/runs).")] = None,
+    brand: Annotated[Path | None, typer.Option(help="Brand directory holding brand.toml (default: $BAYSWATER_BRAND).")] = None,
+) -> None:
+    """Build one weekly post -- post.png, post.md, lock.json -- or refuse, saying which house rule failed."""
+    # Imported here: the publish path needs the `publish` extra (matplotlib),
+    # and nothing else in the CLI should pay for it or fail without it.
+    import importlib.util
+
+    if importlib.util.find_spec("matplotlib") is None:
+        # Checked up front: matplotlib is imported deep inside the chart step,
+        # where a missing extra would surface as a traceback after the house
+        # rules had already passed.
+        typer.echo("error: `pictor post` needs the publish extra -- uv sync --extra publish", err=True)
+        raise typer.Exit(1)
+    from pictor.publish import Refused, build_post
+    from pictor.publish.brand import BrandError
+    from pictor.publish.question import QuestionError
+    from pictor.publish.render import RenderError
+    from pictor.publish.runs import RunError, default_root
+
+    try:
+        built = build_post(question, runs or default_root(), brand)
+    except Refused as exc:
+        typer.echo(f"refused: {exc}", err=True)
+        raise typer.Exit(1) from None
+    except (QuestionError, BrandError, RunError, RenderError) as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(1) from None
+
+    o, sel = built.outcome, built.selection
+    typer.echo(f"verdict: {o.verdict} -- {o.reason}")
+    typer.echo(f"title:   {o.title}")
+    typer.echo(
+        f"runs:    {sel.treatment.run.name} (1 of {sel.treatment.matched}), "
+        f"{sel.baseline.run.name} (1 of {sel.baseline.matched})"
+    )
+    typer.echo(f"text:    {built.words} words")
+    typer.echo(f"wrote:   {built.out}/post.png, post.md, lock.json")
+
+
 def _is_wsl() -> bool:
     return "microsoft" in platform.uname().release.lower()
 

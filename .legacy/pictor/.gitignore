@@ -14,3 +14,5 @@ web/node_modules/
 
 # CloudBase tooling scratch; regenerated on demand, nothing here reads it
 .cloudbase/
+# `pictor post`'s page template is source too.
+!src/pictor/publish/templates/*.html
