@@ -34,901 +34,415 @@
   }
 })();
 const DATA = __PICTOR_DATA__;
-const FX = DATA.fx;
-const state = { workspace: "analysis", view: "accounts", positions: "calendar", selected: /* @__PURE__ */ new Set(), display: DATA.fx && DATA.fx.currencies[0] || "native", account: "all" };
-const TK_NEUTRAL = 4.5;
-const tkOffset = (n) => "translateY(calc(var(--tk-h) * " + -n + "))";
-const tkTarget = (d) => tkOffset(9 - d);
-const isDigit = (ch) => ch >= "0" && ch <= "9";
-function makeTicker(format, className) {
-  const el2 = document.createElement("span");
-  el2.className = "ticker" + (className ? " " + className : "");
-  let strips = [];
-  let shape = null;
-  let digits = [];
-  function shapeOf(text) {
-    return [...text].map((ch) => isDigit(ch) ? "#" : ch).join("");
-  }
-  function build(text) {
-    el2.innerHTML = "";
-    strips = [];
-    for (const ch of text) {
-      if (isDigit(ch)) {
-        const col = document.createElement("span");
-        col.className = "tk-col";
-        const strip = document.createElement("span");
-        strip.className = "tk-strip";
-        for (let d = 9; d >= 0; d--) {
-          const cell2 = document.createElement("span");
-          cell2.textContent = String(d);
-          strip.appendChild(cell2);
-        }
-        strip.style.transform = tkOffset(TK_NEUTRAL);
-        col.appendChild(strip);
-        el2.appendChild(col);
-        strips.push(strip);
-      } else {
-        const sep = document.createElement("span");
-        sep.className = "tk-sep";
-        sep.textContent = ch;
-        el2.appendChild(sep);
-      }
-    }
-  }
-  function applyTargets() {
-    digits.forEach((d, i) => {
-      if (strips[i]) strips[i].style.transform = tkTarget(d);
-    });
-  }
-  function set(value) {
-    const text = format(value);
-    digits = [...text].filter(isDigit).map(Number);
-    const next = shapeOf(text);
-    if (next !== shape) {
-      shape = next;
-      build(text);
-      requestAnimationFrame(() => requestAnimationFrame(applyTargets));
-    } else {
-      applyTargets();
-    }
-  }
-  function replay() {
-    for (const strip of strips) {
-      strip.style.transition = "none";
-      strip.style.transform = tkOffset(TK_NEUTRAL);
-    }
-    void el2.offsetHeight;
-    for (const strip of strips) strip.style.transition = "";
-    requestAnimationFrame(applyTargets);
-  }
-  return { el: el2, set, replay };
+function wireTabs(bar, attr, panes, onShow2) {
+  bar.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-" + attr + "]");
+    if (!btn) return;
+    const name = btn.dataset[attr];
+    bar.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b === btn));
+    for (const [key, pane] of Object.entries(panes)) pane.classList.toggle("hidden", key !== name);
+    if (onShow2) onShow2(name);
+  });
 }
+const state = {
+  workspace: "analysis",
+  analysisTab: "portfolio",
+  researchTab: "data"
+};
 function el(tag, cls, text) {
   const node = document.createElement(tag);
   if (cls) node.className = cls;
   if (text !== void 0) node.textContent = text;
   return node;
 }
-function starIcon() {
-  const b = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  b.setAttribute("class", "star");
-  b.setAttribute("viewBox", "0 0 24 24");
-  b.setAttribute("fill", "currentColor");
-  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  path.setAttribute("d", "M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.9-6.3 3.9 1.7-7L2 9.2l7.1-.6z");
-  b.appendChild(path);
-  return b;
-}
-function toLocalIso(d) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return y + "-" + m + "-" + day;
-}
-const fmtMoney = (n) => (n < 0 ? "-$" : "+$") + Math.abs(n).toLocaleString(void 0, { maximumFractionDigits: 0 });
-const fmtDate = (iso) => {
-  const d = /* @__PURE__ */ new Date(iso + "T00:00:00");
-  return d.toLocaleDateString(void 0, { month: "short", day: "numeric" });
-};
-const int0 = (v) => Math.round(v).toLocaleString();
-const pct1 = (v) => (v * 100).toFixed(1) + "%";
-const DASH = "—";
-function fmtCcy(value, currency) {
-  return value.toLocaleString(void 0, { style: "currency", currency, maximumFractionDigits: 0 });
-}
-function convert(amount, frm, to) {
-  if (amount === null || amount === void 0) return null;
-  if (frm === to) return amount;
-  if (!FX) return null;
-  const from = FX.rates[frm], into = FX.rates[to];
-  if (!from || into === void 0) return null;
-  return amount / from * into;
-}
-const fxNodes = [];
-function refreshFx() {
-  for (const update of fxNodes) update();
-}
-const acctTickers = [];
-function moneyFigure(value, currency, cls) {
-  if (value === null || value === void 0) return el("span", "value-sm" + (cls ? " " + cls : ""), DASH);
-  let shown = currency;
-  const ticker = makeTicker((v) => fmtCcy(v, shown), "value-sm" + (cls ? " " + cls : ""));
-  acctTickers.push(ticker);
-  fxNodes.push(() => {
-    const converted = state.display === "native" ? null : convert(value, currency, state.display);
-    shown = converted === null ? currency : state.display;
-    ticker.set(converted === null ? value : converted);
-  });
-  return ticker.el;
-}
-function moneyText(node, prefix, value, currency) {
-  fxNodes.push(() => {
-    if (value === null || value === void 0) {
-      node.textContent = "";
-      return;
-    }
-    const converted = state.display === "native" ? null : convert(value, currency, state.display);
-    node.textContent = prefix + fmtCcy(converted === null ? value : converted, converted === null ? currency : state.display);
-  });
-  return node;
-}
-function cell(label, node, sub, extra) {
-  const div = el("div", "cell" + (extra ? " " + extra : ""));
-  div.appendChild(el("div", "label", label));
-  div.appendChild(node);
-  if (sub) div.appendChild(typeof sub === "string" ? el("div", "sub", sub) : sub);
-  return div;
-}
-function figure(value, format, cls) {
-  if (value === null || value === void 0) return el("span", "value-sm", DASH);
-  const ticker = makeTicker(format, "value-sm");
-  acctTickers.push(ticker);
-  ticker.set(value);
-  return ticker.el;
-}
-function currencyPicker() {
-  const wrap = el("div", "fx-pick");
-  wrap.appendChild(el("span", "fl", "Show in"));
-  const quick = [FX.base, "native"];
-  const others = FX.currencies.filter((c) => c !== FX.base);
-  const buttons = [];
-  const sync = () => {
-    for (const b of buttons) b.classList.toggle("active", b.dataset.ccy === state.display);
-    menu.value = quick.includes(state.display) ? "" : state.display;
-    menu.classList.toggle("active", !quick.includes(state.display));
-  };
-  for (const code of quick) {
-    const button = el("button", "pill", code === "native" ? "Native" : code);
-    button.dataset.ccy = code;
-    button.addEventListener("click", () => {
-      state.display = code;
-      sync();
-      refreshFx();
-    });
-    buttons.push(button);
-    wrap.appendChild(button);
-  }
-  const menu = document.createElement("select");
-  menu.className = "pill fx-more";
-  const blank = document.createElement("option");
-  blank.value = "";
-  blank.textContent = "Other…";
-  menu.appendChild(blank);
-  for (const code of others) {
-    const option = document.createElement("option");
-    option.value = code;
-    option.textContent = code;
-    menu.appendChild(option);
-  }
-  menu.addEventListener("change", () => {
-    if (!menu.value) return;
-    state.display = menu.value;
-    sync();
-    refreshFx();
-  });
-  wrap.appendChild(menu);
-  sync();
-  return wrap;
-}
-function buildTotalCard(accounts) {
-  const readable = accounts.filter((a) => a.ok);
-  if (!FX || readable.length < 2) return null;
-  const card = el("section", "acct total");
-  const head = el("div", "acct-hd");
-  const left = el("div");
-  left.appendChild(el("h2", null, "All accounts"));
-  const meta = el("div", "acct-meta");
-  left.appendChild(meta);
-  head.appendChild(left);
-  card.appendChild(head);
-  const totalIn = () => state.display === "native" ? FX.base : state.display;
-  fxNodes.push(() => {
-    meta.textContent = readable.length + " accounts · " + readable.map((a) => a.currency).join(" + ") + " · totalled in " + totalIn() + (state.display === "native" ? " (pivot currency)" : "");
-  });
-  const sum = (pick) => () => {
-    let total = 0;
-    for (const a of readable) {
-      const converted = convert(pick(a), a.currency, totalIn());
-      if (converted === null) return null;
-      total += converted;
-    }
-    return total;
-  };
-  const body = el("div", "acct-body");
-  const totalCell = (label, pick, colour) => {
-    let shown = FX.base;
-    const ticker = makeTicker((v) => fmtCcy(v, shown), "value-sm" + (label === "Net liquidation" ? " tk-lg" : ""));
-    acctTickers.push(ticker);
-    fxNodes.push(() => {
-      const total = sum(pick)();
-      shown = totalIn();
-      if (total === null) {
-        ticker.el.textContent = DASH;
-        return;
-      }
-      ticker.set(total);
-      if (colour) {
-        ticker.el.classList.toggle("good", total >= 0);
-        ticker.el.classList.toggle("critical", total < 0);
-      }
-    });
-    return ticker.el;
-  };
-  body.appendChild(cell("Net liquidation", totalCell("Net liquidation", (a) => a.netLiquidation), null, "hero"));
-  body.appendChild(cell("Cash", totalCell("Cash", (a) => a.cash)));
-  body.appendChild(cell("Unrealized P&L", totalCell("P&L", (a) => a.unrealizedPnl, true)));
-  card.appendChild(body);
-  const rows = el("div", "acct-rows");
-  rows.appendChild(el("h3", null, "Contribution"));
-  for (const a of readable) {
-    const row = el("div", "hold");
-    const name = el("div");
-    name.appendChild(el("div", "sym", a.label));
-    name.appendChild(el("div", "qty", a.account));
-    const track = el("div", "track");
-    const bar = document.createElement("i");
-    track.appendChild(bar);
-    const amt = el("div");
-    const main = el("div", "amt");
-    const native = el("div", "qty");
-    amt.append(main, native);
-    fxNodes.push(() => {
-      const target = totalIn();
-      const converted = convert(a.netLiquidation, a.currency, target);
-      const total = sum((x) => x.netLiquidation)();
-      main.textContent = converted === null ? DASH : fmtCcy(converted, target);
-      native.textContent = a.currency === target || a.netLiquidation === null ? "" : fmtCcy(a.netLiquidation, a.currency);
-      bar.style.width = (total && converted !== null ? Math.abs(converted / total) * 100 : 0) + "%";
-    });
-    row.append(name, track, amt);
-    rows.appendChild(row);
-  }
-  const note = el("div", "note" + (FX.stale ? " warn" : ""));
-  const stamp = new Date(FX.asOf);
-  const when = stamp.getHours() === 0 && stamp.getMinutes() === 0 ? stamp.toLocaleDateString(void 0, { dateStyle: "medium" }) : stamp.toLocaleString(void 0, { dateStyle: "medium", timeStyle: "short" });
-  note.textContent = (FX.stale ? "STALE RATES — every live source failed; last known table from " : "Converted at " + FX.source + " rates, ") + when + ". P&L restated this way moves with the exchange rate as well as with the positions.";
-  rows.appendChild(note);
-  card.appendChild(rows);
-  return card;
-}
-function buildAccountCard(a, detail = true) {
-  const card = el("section", "acct" + (a.ok ? "" : " failed"));
-  const head = el("div", "acct-hd");
-  const left = el("div");
-  left.appendChild(el("h2", null, a.label));
-  const bits = [a.account || a.source, a.profile];
-  if (a.asOf) bits.push("as of " + new Date(a.asOf).toLocaleTimeString(void 0, { hour: "2-digit", minute: "2-digit" }));
-  left.appendChild(el("div", "acct-meta", bits.filter(Boolean).join("  ·  ")));
-  head.appendChild(left);
-  if (a.ok && a.currency) {
-    const tag = el("span", "acct-tag");
-    fxNodes.push(() => {
-      const target = state.display === "native" ? a.currency : state.display;
-      tag.textContent = target === a.currency || !FX ? a.currency : a.currency + " → " + target;
-    });
-    head.appendChild(tag);
-  }
-  card.appendChild(head);
-  if (!a.ok) {
-    card.appendChild(el("div", "err", a.error));
-    return card;
-  }
-  const body = el("div", "acct-body");
-  body.appendChild(cell("Net liquidation", moneyFigure(a.netLiquidation, a.currency, "tk-lg"), null, "hero"));
-  body.appendChild(cell(
-    "Cash",
-    moneyFigure(a.cash, a.currency, a.cash !== null && a.cash < 0 ? "critical" : null),
-    a.cash !== null && a.cash < 0 ? "borrowed against the account" : null
-  ));
-  body.appendChild(cell(
-    "Unrealized P&L",
-    moneyFigure(a.unrealizedPnl, a.currency, a.unrealizedPnl === null ? null : a.unrealizedPnl >= 0 ? "good" : "critical")
-  ));
-  if (a.optionCount === 0 && a.equityCount > 0) {
-    body.appendChild(cell("Share lines", figure(a.equityCount, int0), "no options in this account"));
-  } else {
-    body.appendChild(cell(
-      "Option legs",
-      figure(a.optionCount, int0),
-      a.equityCount + (a.equityCount === 1 ? " share line" : " share lines")
-    ));
-  }
-  if (a.margin) {
-    const m = a.margin;
-    const used = cell(
-      "Margin used",
-      figure(m.utilisation, pct1),
-      m.maintenance === null ? null : moneyText(el("div", "sub"), "maintenance ", m.maintenance, a.currency)
-    );
-    if (m.utilisation !== null) {
-      const level = m.utilisation >= 0.8 ? " crit" : m.utilisation >= 0.5 ? " warn" : "";
-      const meter = el("div", "meter" + level);
-      const fill = el("span");
-      fill.style.width = Math.min(100, Math.max(0, m.utilisation * 100)) + "%";
-      meter.appendChild(fill);
-      used.appendChild(meter);
-    }
-    body.appendChild(used);
-    body.appendChild(cell(
-      "Excess liquidity",
-      moneyFigure(m.excess, a.currency),
-      m.cushion === null ? null : "cushion " + pct1(m.cushion)
-    ));
-    body.appendChild(cell("Buying power", moneyFigure(m.buyingPower, a.currency)));
-  } else {
-    body.appendChild(cell("Account type", el("span", "value-sm", "Cash"), "no margin reported"));
-  }
-  card.appendChild(body);
-  if (detail && a.holdings.length) {
-    const rows = el("div", "acct-rows");
-    rows.appendChild(el("h3", null, "Top holdings"));
-    const peak = Math.max(...a.holdings.map((h) => Math.abs(h.baseValue || 0)), 1);
-    for (const h of a.holdings) {
-      const row = el("div", "hold");
-      const name = el("div");
-      name.appendChild(el("div", "sym", h.symbol));
-      name.appendChild(el("div", "qty", h.quantity.toLocaleString() + (Math.abs(h.quantity) === 1 ? " share" : " shares")));
-      const track = el("div", "track");
-      const bar = document.createElement("i");
-      bar.style.width = Math.abs(h.baseValue || 0) / peak * 100 + "%";
-      track.appendChild(bar);
-      const amt = el("div");
-      amt.appendChild(el("div", "amt", h.marketValue === null ? DASH : fmtCcy(h.marketValue, h.currency || a.currency)));
-      const converted = el("div", "qty");
-      fxNodes.push(() => {
-        const target = state.display === "native" ? h.baseCurrency : state.display;
-        const value = convert(h.marketValue, h.currency || a.currency, target);
-        converted.textContent = value === null || target === (h.currency || a.currency) ? "" : "≈ " + fmtCcy(value, target);
-      });
-      amt.appendChild(converted);
-      row.append(name, track, amt);
-      rows.appendChild(row);
-    }
-    card.appendChild(rows);
-  }
-  if (detail && a.currencies.length > 1) {
-    const rows = el("div", "acct-rows");
-    rows.appendChild(el("h3", null, "Currencies"));
-    for (const cur of a.currencies) {
-      const row = el("div", "ccy-row");
-      row.appendChild(el("b", null, cur.currency));
-      if (cur.cash !== null) row.appendChild(el("span", null, "cash " + fmtCcy(cur.cash, cur.currency)));
-      if (cur.netLiquidation !== null) row.appendChild(el("span", null, "net liq " + fmtCcy(cur.netLiquidation, cur.currency)));
-      if (cur.rate !== null && cur.currency !== a.currency) {
-        row.appendChild(el("span", null, "1 " + cur.currency + " = " + cur.rate.toPrecision(4) + " " + a.currency + " (broker)"));
-      }
-      rows.appendChild(row);
-    }
-    card.appendChild(rows);
-  }
-  if (detail && a.unavailable.length) {
-    const note = el("div", "acct-rows");
-    note.appendChild(el("div", "note", "Not permitted by this key: " + a.unavailable.join("; ")));
-    card.appendChild(note);
-  }
-  return card;
-}
-function accountNav() {
-  const row = el("div", "acct-nav-row");
-  const nav = el("div", "views");
-  const tabs = [
-    { key: "all", label: "All accounts" },
-    ...DATA.accounts.map((a) => ({ key: a.source, label: a.label }))
-  ];
-  for (const t of tabs) {
-    const button = el("button", state.account === t.key ? "active" : "", t.label);
-    button.addEventListener("click", () => {
-      state.account = t.key;
-      onAccountChange();
-    });
-    nav.appendChild(button);
-  }
-  row.appendChild(nav);
-  if (FX) row.appendChild(currencyPicker());
-  return row;
-}
-function buildAccounts() {
-  const root = document.getElementById("accountsCards");
-  if (!DATA.accounts.length) return;
-  root.innerHTML = "";
-  acctTickers.length = 0;
-  fxNodes.length = 0;
-  root.appendChild(DATA.accounts.length > 1 ? accountNav() : FX ? currencyPicker() : el("div"));
-  if (state.account === "all") {
-    const total = buildTotalCard(DATA.accounts);
-    if (total) root.appendChild(total);
-    const grid = el("div", "acct-grid");
-    for (const a of DATA.accounts) grid.appendChild(buildAccountCard(a, false));
-    root.appendChild(grid);
-  } else {
-    const one = DATA.accounts.find((a) => a.source === state.account);
-    root.appendChild(buildAccountCard(one || DATA.accounts[0]));
-  }
-  refreshFx();
-}
-const tooltipEl = document.getElementById("tooltip");
-function showTooltip(e, c) {
-  tooltipEl.innerHTML = "";
-  const title = document.createElement("div");
-  title.innerHTML = "<b></b>";
-  title.querySelector("b").textContent = c.label;
-  tooltipEl.appendChild(title);
-  const rows = [
-    ["Expiry", fmtDate(c.expiry) + " (" + c.dte + "d)"],
-    ["Unrealized P&L", fmtMoney(c.pnl)]
-  ];
-  if (c.inDecisionZone) rows.push(["Decision zone", "within " + c.zoneDays + "d of expiry"]);
-  if (c.earningsFlag) rows.push(["Earnings", fmtDate(c.earningsDate) + " (before expiry)"]);
-  if (c.news) rows.push(["News", "recent headline"]);
-  for (const [k, v] of rows) {
-    const row = document.createElement("div");
-    row.className = "row";
-    const kEl = document.createElement("span");
-    kEl.textContent = k;
-    const vEl = document.createElement("b");
-    vEl.textContent = v;
-    row.append(kEl, vEl);
-    tooltipEl.appendChild(row);
-  }
-  tooltipEl.classList.add("show");
-  positionTooltip(e);
-}
-function positionTooltip(e) {
-  const pad = 14;
-  let x = e.clientX + pad;
-  let y = e.clientY + pad;
-  const rect = tooltipEl.getBoundingClientRect();
-  if (x + rect.width > window.innerWidth) x = e.clientX - rect.width - pad;
-  if (y + rect.height > window.innerHeight) y = e.clientY - rect.height - pad;
-  tooltipEl.style.left = x + "px";
-  tooltipEl.style.top = y + "px";
-}
-function hideTooltip() {
-  tooltipEl.classList.remove("show");
-}
-function wireHover(el2, c) {
-  el2.addEventListener("pointerenter", (e) => showTooltip(e, c));
-  el2.addEventListener("pointermove", (e) => positionTooltip(e));
-  el2.addEventListener("pointerleave", hideTooltip);
-  el2.tabIndex = 0;
-  el2.addEventListener("focus", (e) => showTooltip(e, c));
-  el2.addEventListener("blur", hideTooltip);
-}
-function chipsByDate(chips) {
-  const map = {};
-  for (const c of chips) {
-    if (!map[c.expiry]) map[c.expiry] = [];
-    map[c.expiry].push(c);
-  }
-  return map;
-}
-function buildCalendar(chips) {
-  const root = document.getElementById("calendarView");
-  root.innerHTML = "";
-  if (chips.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "card cal-empty";
-    empty.textContent = "No spreads match this filter.";
-    root.appendChild(empty);
-    return;
-  }
-  const byDate = chipsByDate(chips);
-  const today = /* @__PURE__ */ new Date(DATA.today + "T00:00:00");
-  const todayIso = DATA.today;
-  const dates = chips.map((c) => /* @__PURE__ */ new Date(c.expiry + "T00:00:00"));
-  dates.push(today);
-  const minD = new Date(Math.min(...dates));
-  const maxD = new Date(Math.max(...dates));
-  const months = [];
-  let cursor = new Date(minD.getFullYear(), minD.getMonth(), 1);
-  const end = new Date(maxD.getFullYear(), maxD.getMonth(), 1);
-  while (cursor <= end) {
-    months.push(new Date(cursor));
-    cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
-  }
-  const grid = document.createElement("div");
-  grid.className = "months";
-  root.appendChild(grid);
-  for (const monthStart of months) {
-    const card = document.createElement("div");
-    card.className = "card";
-    const title = document.createElement("div");
-    title.className = "month-title";
-    title.textContent = monthStart.toLocaleDateString(void 0, { month: "long", year: "numeric" });
-    card.appendChild(title);
-    const weekdays = document.createElement("div");
-    weekdays.className = "weekdays";
-    for (const wd of ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]) {
-      const d = document.createElement("div");
-      d.textContent = wd;
-      weekdays.appendChild(d);
-    }
-    card.appendChild(weekdays);
-    const weeksEl = document.createElement("div");
-    weeksEl.className = "weeks";
-    const firstOfMonth = new Date(monthStart.getFullYear(), monthStart.getMonth(), 1);
-    const gridStart = new Date(firstOfMonth);
-    gridStart.setDate(gridStart.getDate() - gridStart.getDay());
-    const lastOfMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
-    const gridEnd = new Date(lastOfMonth);
-    gridEnd.setDate(gridEnd.getDate() + (6 - gridEnd.getDay()));
-    let day = new Date(gridStart);
-    while (day <= gridEnd) {
-      const weekRow = document.createElement("div");
-      weekRow.className = "week-row";
-      for (let i = 0; i < 7; i++) {
-        const iso = toLocalIso(day);
-        const cell2 = document.createElement("div");
-        cell2.className = "day";
-        if (day.getMonth() !== monthStart.getMonth()) cell2.classList.add("outside");
-        if (iso === todayIso) cell2.classList.add("today");
-        const num = document.createElement("div");
-        num.className = "daynum";
-        num.textContent = day.getDate();
-        cell2.appendChild(num);
-        for (const c of byDate[iso] || []) {
-          cell2.appendChild(buildChip(c));
-        }
-        weekRow.appendChild(cell2);
-        day = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1);
-      }
-      weeksEl.appendChild(weekRow);
-    }
-    card.appendChild(weeksEl);
-    grid.appendChild(card);
-  }
-}
-function buildChip(c) {
-  const chip = document.createElement("div");
-  chip.className = "chip" + (c.gain ? "" : " loss") + (c.inDecisionZone ? " zone" : "");
-  const tk = document.createElement("div");
-  tk.className = "tk";
-  tk.textContent = c.underlying;
-  chip.appendChild(tk);
-  const strikes = document.createElement("div");
-  strikes.className = "strikes";
-  strikes.textContent = c.label.slice(c.underlying.length + 1) + " · " + c.dte + "d";
-  chip.appendChild(strikes);
-  if (c.earningsFlag || c.news) {
-    const badges = document.createElement("div");
-    badges.className = "badges";
-    if (c.earningsFlag) {
-      const b = document.createElement("div");
-      b.className = "diamond";
-      badges.appendChild(b);
-    }
-    if (c.news) {
-      badges.appendChild(starIcon());
-    }
-    chip.appendChild(badges);
-  }
-  wireHover(chip, c);
-  return chip;
-}
-function underlyings() {
-  return [...new Set(accountChips().map((c) => c.underlying))].sort();
-}
-function accountChips() {
-  if (state.account === "all") return DATA.chips;
-  return DATA.chips.filter((c) => c.source === state.account);
-}
-function filteredChips() {
-  const chips = accountChips();
-  if (state.selected.size === 0) return chips;
-  return chips.filter((c) => state.selected.has(c.underlying));
-}
-function buildFilters(onChange) {
-  const root = document.getElementById("filters");
-  root.querySelectorAll(".pill").forEach((el2) => el2.remove());
-  const allPill = document.createElement("button");
-  allPill.className = "pill" + (state.selected.size === 0 ? " active" : "");
-  allPill.textContent = "All";
-  allPill.addEventListener("click", () => {
-    state.selected.clear();
-    onChange();
-  });
-  root.appendChild(allPill);
-  for (const tk of underlyings()) {
-    const pill = document.createElement("button");
-    pill.className = "pill" + (state.selected.has(tk) ? " active" : "");
-    pill.textContent = tk;
-    pill.addEventListener("click", () => {
-      if (state.selected.has(tk)) state.selected.delete(tk);
-      else state.selected.add(tk);
-      onChange();
-    });
-    root.appendChild(pill);
-  }
-}
-function buildGantt(chips) {
-  const root = document.getElementById("ganttView");
-  root.innerHTML = "";
-  if (chips.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "card gantt-empty";
-    empty.textContent = "No spreads match this filter.";
-    root.appendChild(empty);
-    return;
-  }
-  const sorted = [...chips].sort((a, b) => a.dte - b.dte);
-  const today = /* @__PURE__ */ new Date(DATA.today + "T00:00:00");
-  const maxDte = Math.max(...sorted.map((c) => c.dte), ...sorted.map((c) => c.zoneDays), 1);
-  const axisMax = Math.ceil((maxDte + 3) / 7) * 7;
-  const card = document.createElement("div");
-  card.className = "card gantt-card";
-  for (const c of sorted) {
-    const row = document.createElement("div");
-    row.className = "gantt-row";
-    const label = document.createElement("div");
-    label.className = "gantt-label";
-    const tk = document.createElement("div");
-    tk.className = "tk";
-    tk.textContent = c.underlying;
-    const strikes = document.createElement("div");
-    strikes.className = "strikes";
-    strikes.textContent = c.label.slice(c.underlying.length + 1);
-    label.append(tk, strikes);
-    row.appendChild(label);
-    const track = document.createElement("div");
-    track.className = "gantt-track";
-    const zoneBand = document.createElement("div");
-    zoneBand.className = "zone-band";
-    zoneBand.style.width = pct(c.zoneDays, axisMax);
-    track.appendChild(zoneBand);
-    const bar = document.createElement("div");
-    bar.className = "bar" + (c.gain ? "" : " loss");
-    bar.style.width = pct(c.dte, axisMax);
-    track.appendChild(bar);
-    const tipLabel = document.createElement("div");
-    tipLabel.className = "tip-label";
-    tipLabel.textContent = c.dte + "d";
-    tipLabel.style.left = "calc(" + pct(c.dte, axisMax) + " + 6px)";
-    track.appendChild(tipLabel);
-    if (c.earningsFlag) {
-      const earningsDte = Math.round((/* @__PURE__ */ new Date(c.earningsDate + "T00:00:00") - today) / 864e5);
-      const marker = document.createElement("div");
-      marker.className = "marker diamond";
-      marker.style.left = pct(earningsDte, axisMax);
-      track.appendChild(marker);
-    }
-    if (c.news) {
-      const marker = starIcon();
-      marker.classList.add("marker");
-      marker.style.left = pct(c.dte + 1, axisMax);
-      track.appendChild(marker);
-    }
-    row.appendChild(track);
-    wireHover(row, c);
-    card.appendChild(row);
-  }
-  const axis = document.createElement("div");
-  axis.className = "gantt-axis";
-  const axisLabelSpacer = document.createElement("div");
-  axis.appendChild(axisLabelSpacer);
-  const ticks = document.createElement("div");
-  ticks.className = "ticks";
-  for (let d = 0; d <= axisMax; d += 7) {
-    const tick = document.createElement("div");
-    tick.className = "tick";
-    tick.style.left = pct(d, axisMax);
-    tick.textContent = d + "d";
-    ticks.appendChild(tick);
-  }
-  axis.appendChild(ticks);
-  card.appendChild(axis);
-  root.appendChild(card);
-}
-function pct(value, max) {
-  return Math.max(0, Math.min(100, value / max * 100)) + "%";
-}
-const statTickers = [];
-function buildStats(chips) {
-  const netPnl = chips.reduce((sum, c) => sum + c.pnl, 0);
-  const zoneCount = chips.filter((c) => c.inDecisionZone).length;
-  const earningsCount = chips.filter((c) => c.earningsFlag).length;
-  const stats = [
-    { label: "Open spreads", value: chips.length, format: int0 },
-    { label: "Net unrealized P&L", value: netPnl, format: fmtMoney, cls: netPnl >= 0 ? "good" : "critical" },
-    { label: "In decision zone", value: zoneCount, format: int0 },
-    { label: "Earnings collisions", value: earningsCount, format: int0 }
-  ];
-  const el2 = document.getElementById("stats");
-  if (!statTickers.length) {
-    for (const s of stats) {
-      const div = document.createElement("div");
-      div.className = "stat";
-      const label = document.createElement("div");
-      label.className = "label";
-      label.textContent = s.label;
-      const value = document.createElement("div");
-      value.className = "value";
-      const ticker = makeTicker(s.format);
-      value.appendChild(ticker.el);
-      div.append(label, value);
-      el2.appendChild(div);
-      statTickers.push(ticker);
-    }
-  }
-  stats.forEach((s, i) => {
-    statTickers[i].el.classList.toggle("good", s.cls === "good");
-    statTickers[i].el.classList.toggle("critical", s.cls === "critical");
-    statTickers[i].set(s.value);
-  });
-}
-function buildPlaceholder(root, { title, meta, tag, lede, items, note }) {
-  if (root.childElementCount) return;
-  const card = el("section", "acct placeholder");
-  const head = el("div", "acct-hd");
+function panel({ title, meta, tag, cls }) {
+  const root = el("section", "panel" + (cls ? " " + cls : ""));
+  const head = el("div", "panel-hd");
   const left = el("div");
   left.appendChild(el("h2", null, title));
-  left.appendChild(el("div", "acct-meta", meta));
+  if (meta) left.appendChild(el("div", "panel-meta", meta));
   head.appendChild(left);
-  if (tag) head.appendChild(el("span", "acct-tag", tag));
-  card.appendChild(head);
-  const body = el("div", "acct-rows");
-  body.appendChild(el("p", "ph-lede", lede));
-  const list = el("div", "ph-list");
-  for (const [name, what] of items) {
-    const item = el("div", "ph-item");
-    item.appendChild(el("div", "sym", name));
-    item.appendChild(el("div", "qty", what));
-    list.appendChild(item);
+  if (tag) head.appendChild(el("span", "panel-tag", tag));
+  root.appendChild(head);
+  const body = el("div", "panel-body");
+  root.appendChild(body);
+  return { root, body };
+}
+function emptyBody(text, height) {
+  const node = el("div", "panel-empty", text);
+  if (height) node.style.minHeight = height + "px";
+  return node;
+}
+function emptyPanel({ title, meta, tag, cls, text, height }) {
+  const { root, body } = panel({ title, meta, tag, cls });
+  body.appendChild(emptyBody(text, height));
+  return root;
+}
+function regionTitle(text) {
+  return el("h2", "region-title", text);
+}
+const JOBS = [
+  {
+    name: "plan",
+    owner: "antlia",
+    command: "antlia-history plan",
+    what: "What a fill would ask the vendor for, without asking."
+  },
+  {
+    name: "fill",
+    owner: "antlia",
+    command: "antlia-history fill",
+    what: "Fetch what is missing and append it to the store. Spends metered requests."
+  },
+  {
+    name: "check",
+    owner: "antlia",
+    command: "antlia-history check",
+    what: "Unreadable files, leaked writes, ledger mismatches."
+  },
+  {
+    name: "readiness",
+    owner: "vela",
+    command: "vela check",
+    what: "Is this window runnable, and if not, why. Writes readiness.json.",
+    pending: true
+  },
+  {
+    name: "combo",
+    owner: "vela",
+    command: "vela combo",
+    what: "Run every cell of a parameter grid against one pinned dataset.",
+    pending: true
   }
-  body.appendChild(list);
-  if (note) body.appendChild(el("div", "note", note));
-  card.appendChild(body);
-  root.appendChild(card);
+];
+function jobNode(job) {
+  const node = el("div", "dag-node");
+  const head = el("div", "dag-hd");
+  head.appendChild(el("span", "dag-name", job.name));
+  head.appendChild(el("span", "dag-owner", job.owner));
+  node.appendChild(head);
+  node.appendChild(el("code", "dag-cmd", job.command));
+  node.appendChild(el("div", "dag-what", job.what));
+  node.appendChild(el("div", "dag-state", job.pending ? "not built in vela yet" : "not wired"));
+  return node;
 }
-function buildMarket() {
-  buildPlaceholder(document.getElementById("marketView"), {
-    title: "Market",
-    meta: "live, like Accounts · not yet wired",
-    tag: "needs antlia.market",
-    lede: "Accounts answers what you hold. Market answers what is happening to the things you hold, or might: quotes, chains, surfaces, the calendar of events that moves them. It is live data like Accounts, which is why it belongs in this workspace and not in Research.",
-    items: [
-      ["Quotes and chains", "Prices and option chains per underlying, through one rate-limited session rather than a scraper per caller."],
-      ["Volatility surface", "Strike by expiry by IV, for the underlyings actually held or watched."],
-      ["Events", "Earnings and headlines -- today pictor fetches these itself, bypassing antlia's session and pacing entirely."]
-    ],
-    note: "Blocked on a market layer in antlia; nothing here is faked in the meantime."
-  });
+function buildData() {
+  const root = document.getElementById("dataTab");
+  root.appendChild(regionTitle("Jobs"));
+  const dag = el("div", "dag");
+  for (const job of JOBS) dag.appendChild(jobNode(job));
+  root.appendChild(dag);
+  root.appendChild(el(
+    "div",
+    "note",
+    "Shown in dependency order, left to right. Nothing is triggered from this page yet; the commands are the ones each project already ships or has planned."
+  ));
+  root.appendChild(regionTitle("Datasets"));
+  const grid = el("div", "panel-grid wide");
+  grid.appendChild(emptyPanel({
+    title: "Cache",
+    meta: "what the store holds: symbol, table, date range, last ingest",
+    tag: "needs a store read",
+    text: "One row per symbol and table, with the dates held drawn as a band and the gaps left open.",
+    height: 260
+  }));
+  grid.appendChild(emptyPanel({
+    title: "Quality",
+    meta: "per window: held, missing, denied, sessions without a chain, divergent sessions",
+    tag: "needs vela check",
+    text: "One readiness report per checked window. A refusal is a result and is listed with its reason.",
+    height: 260
+  }));
+  root.appendChild(grid);
 }
-function buildResearch() {
-  buildPlaceholder(document.getElementById("researchWs"), {
-    title: "Research",
-    meta: "fixed datasets · nothing here is live",
-    tag: "waiting on vela",
-    lede: "Analysis answers what you hold right now, off a broker snapshot that is stale the moment it is read. Research answers what a strategy would have done, off a dataset that does not move -- which is the whole reason a backtest can be repeated.",
-    items: [
-      ["Backtests", "One strategy over a fixed window, with the dataset and its date range stated on the result."],
-      ["Parameter sweeps", "The same strategy across a grid of parameters, so the shape of the result is visible rather than one lucky cell."],
-      ["Deep dives", "One instrument, or a set of them, examined on their own terms -- chain, surface, history."]
-    ],
-    note: "Vela computes these; pictor renders them. Until it lands there is deliberately nothing to click here."
-  });
-}
-function buildTable(chips) {
-  const root = document.getElementById("tableView");
-  root.innerHTML = "";
-  const table = document.createElement("table");
-  table.className = "data";
-  const thead = document.createElement("thead");
-  const headRow = document.createElement("tr");
-  for (const h of ["Ticker", "Strikes", "Expiry", "DTE", "P&L", "Decision zone", "Earnings", "News"]) {
-    const th = document.createElement("th");
-    th.textContent = h;
-    headRow.appendChild(th);
+const PANES = [
+  {
+    title: "Price & returns",
+    meta: "close and cumulative return, per watched symbol",
+    tag: "needs antlia live/",
+    text: "A line per symbol, rebased to the start of the window."
+  },
+  {
+    title: "Realized volatility",
+    meta: "rolling close-to-close, by window",
+    tag: "needs antlia live/",
+    text: "Annualised volatility over short, medium and long windows."
+  },
+  {
+    title: "Drawdown",
+    meta: "depth and duration from the running peak",
+    tag: "needs antlia live/",
+    text: "Underwater curve per symbol, with the current drawdown called out."
+  },
+  {
+    title: "Correlation",
+    meta: "pairwise return correlation across the watchlist",
+    tag: "needs antlia live/",
+    text: "A symbol-by-symbol matrix over the selected window."
+  },
+  {
+    title: "Implied volatility",
+    meta: "IV rank and term structure",
+    tag: "needs an IV source",
+    text: "Where each symbol's implied volatility sits in its own history, and across expiries."
+  },
+  {
+    title: "Events",
+    meta: "earnings dates and headlines for the watchlist",
+    tag: "not wired",
+    text: "What is scheduled, and what just happened, per symbol."
   }
-  thead.appendChild(headRow);
+];
+function buildMetrics() {
+  const root = document.getElementById("metricsTab");
+  const grid = el("div", "panel-grid wide");
+  for (const pane of PANES) grid.appendChild(emptyPanel({ ...pane, height: 220 }));
+  root.appendChild(grid);
+}
+const DASH = "—";
+const GROUPS = [
+  { title: "Data", meta: "the window every cell runs on, loaded once", fields: [
+    ["symbol", "the underlying"],
+    ["start", "first session"],
+    ["end", "last session"],
+    ["max_dte", "how far out the chain is read"],
+    ["as_of", "optional: pin the read to one ingest"]
+  ] },
+  { title: "Split", meta: "mandatory: every cell is scored on both sides", fields: [
+    ["in_sample_end", "choosing among cells uses only what is before this"]
+  ] },
+  { title: "Strategy", meta: "a list here is an axis", fields: [
+    ["right", "P or C"],
+    ["moneyness", "short strike / spot"],
+    ["width", "dollars between strikes"],
+    ["entry_dte", "the entry window, in days"],
+    ["take_profit", "fraction of max profit"],
+    ["stop_loss", "fraction of max loss"],
+    ["exit_dte", "close at this many days"],
+    ["gate", "none, or a signal with its threshold; none is the null"]
+  ] },
+  { title: "Execution", meta: "costs decide the sign of a result", fields: [
+    ["haircut", "half-spreads crossed per leg"],
+    ["commission", "dollars per contract"]
+  ] }
+];
+function fieldRows(body, fields) {
+  for (const [name, what] of fields) {
+    const row = el("div", "kv");
+    row.appendChild(el("code", "kv-key", name));
+    row.appendChild(el("span", "kv-what", what));
+    row.appendChild(el("span", "kv-val", DASH));
+    body.appendChild(row);
+  }
+}
+function buildParameters() {
+  const root = document.getElementById("parametersTab");
+  const layout = el("div", "split-layout");
+  const columns = [el("div"), el("div")];
+  const placement = { Data: 0, Split: 0, Strategy: 1, Execution: 0 };
+  for (const group of GROUPS) {
+    const { root: card, body: body2 } = panel({ title: group.title, meta: group.meta });
+    fieldRows(body2, group.fields);
+    columns[placement[group.title]].appendChild(card);
+  }
+  layout.append(...columns);
+  const { root: grid, body } = panel({
+    title: "Grid",
+    meta: "the cartesian product of every axis",
+    tag: "no config loaded"
+  });
+  fieldRows(body, [
+    ["axes", "values given as lists"],
+    ["cells", "how many configurations were tried"],
+    ["config", "the file this grid was read from"]
+  ]);
+  body.appendChild(el(
+    "div",
+    "note",
+    "Every cell is written, including the ones that lose and the ones that never trade. The count is kept so the best cell can be weighed against the number of tries."
+  ));
+  layout.appendChild(grid);
+  root.appendChild(layout);
+}
+function buildPipeline() {
+  document.getElementById("pipelineTab").appendChild(emptyPanel({
+    title: "Pipeline",
+    meta: "full width · shape undecided",
+    tag: "reserved",
+    text: "Reserved. Nothing is designed here yet.",
+    height: 460
+  }));
+}
+const SAMPLE = [
+  "[[symbol]]",
+  'ticker = "XXXX"',
+  'note = "why it is on the list"',
+  'tags = ["sector", "theme"]'
+].join("\n");
+const QUOTE_COLUMNS = ["Last", "Change", "IV rank"];
+function watched() {
+  return DATA.watchlist ? DATA.watchlist.symbols : [];
+}
+function buildPortfolio() {
+  const root = document.getElementById("portfolioTab");
+  const list = DATA.watchlist;
+  const symbols = watched();
+  const { root: card, body } = panel({
+    title: "Watchlist",
+    meta: list ? list.path + " · " + symbols.length + (symbols.length === 1 ? " symbol" : " symbols") : "no watchlist was given to this page",
+    tag: "quotes need antlia live/"
+  });
+  if (!symbols.length) {
+    const why = !list ? "This page was rendered without a watchlist." : !list.found ? "No watchlist file at " + list.path + "." : list.path + " lists no symbols.";
+    const empty = emptyBody(why + " One [[symbol]] table per row:");
+    empty.appendChild(el("pre", "sample", SAMPLE));
+    body.appendChild(empty);
+    root.appendChild(card);
+    return;
+  }
+  const table = el("table", "data");
+  const head = el("tr");
+  for (const h of ["Ticker", "Note", "Tags", ...QUOTE_COLUMNS]) {
+    const th = el("th", QUOTE_COLUMNS.includes(h) ? "num" : null, h);
+    head.appendChild(th);
+  }
+  const thead = el("thead");
+  thead.appendChild(head);
   table.appendChild(thead);
-  const tbody = document.createElement("tbody");
-  const sorted = [...chips].sort((a, b) => a.dte - b.dte);
-  for (const c of sorted) {
-    const tr = document.createElement("tr");
-    const cells = [
-      c.underlying,
-      c.label.slice(c.underlying.length + 1),
-      fmtDate(c.expiry),
-      c.dte + "d",
-      fmtMoney(c.pnl),
-      c.inDecisionZone ? "Yes (≤" + c.zoneDays + "d)" : "—",
-      c.earningsFlag ? fmtDate(c.earningsDate) : "—",
-      c.news ? "Yes" : "—"
-    ];
-    cells.forEach((val, i) => {
-      const td = document.createElement("td");
-      td.textContent = val;
-      if (i === 3 || i === 4) td.classList.add("num");
-      if (i === 4) td.classList.add(c.gain ? "good" : "critical");
-      tr.appendChild(td);
-    });
+  const tbody = el("tbody");
+  for (const s of symbols) {
+    const tr = el("tr");
+    tr.appendChild(el("td", "sym", s.ticker));
+    tr.appendChild(el("td", "muted", s.note || ""));
+    const tags = el("td");
+    for (const t of s.tags) tags.appendChild(el("span", "tagchip", t));
+    tr.appendChild(tags);
+    for (let i = 0; i < QUOTE_COLUMNS.length; i++) tr.appendChild(el("td", "num muted", DASH));
     tbody.appendChild(tr);
   }
   table.appendChild(tbody);
-  root.appendChild(table);
+  body.classList.add("flush");
+  body.appendChild(table);
+  card.appendChild(el(
+    "div",
+    "note pad",
+    "Last, Change and IV rank stay empty until there is a market-data layer to read them from. Nothing on this tab is fetched."
+  ));
+  root.appendChild(card);
 }
-function onAccountChange() {
-  state.selected.clear();
-  render();
+const HALVES = ["In-sample", "Out-of-sample"];
+const FIGURES = ["Trades", "t-stat", "Total P&L", "Sharpe"];
+function cellsTable() {
+  const table = el("table", "data");
+  const thead = el("thead");
+  const groups = el("tr");
+  for (const h of ["", ""]) groups.appendChild(el("th", null, h));
+  for (const half of HALVES) {
+    const th = el("th", "group", half);
+    th.colSpan = FIGURES.length;
+    groups.appendChild(th);
+  }
+  groups.appendChild(el("th", null, ""));
+  thead.appendChild(groups);
+  const cols = el("tr");
+  cols.appendChild(el("th", null, "Cell"));
+  cols.appendChild(el("th", null, "Parameters"));
+  for (let i = 0; i < HALVES.length; i++) {
+    for (const f of FIGURES) cols.appendChild(el("th", "num", f));
+  }
+  cols.appendChild(el("th", "num", "Null"));
+  thead.appendChild(cols);
+  table.appendChild(thead);
+  return table;
 }
-function render() {
-  const any = accountChips().length > 0;
-  document.getElementById("positions").classList.toggle("hidden", !any);
-  document.getElementById("positionsNone").classList.toggle("hidden", any);
-  const chips = filteredChips();
-  buildFilters(render);
-  buildStats(chips);
-  buildCalendar(chips);
-  buildGantt(chips);
-  buildTable(chips);
-  buildAccounts();
+function buildResults() {
+  const root = document.getElementById("resultsTab");
+  const { root: cells, body } = panel({
+    title: "Cells",
+    meta: "every configuration of the selected run, none hidden",
+    tag: "needs vela runs",
+    cls: "stack"
+  });
+  body.classList.add("flush");
+  body.appendChild(cellsTable());
+  body.appendChild(emptyBody("No run to show. A run is a folder vela writes; this table gets one row per cell in it.", 120));
+  root.appendChild(cells);
+  const grid = el("div", "panel-grid");
+  const panes = [
+    {
+      title: "Equity",
+      meta: "the selected cell's curve, with the in-sample boundary marked",
+      tag: "needs vela runs",
+      text: "Equity over the window, the null's curve behind it."
+    },
+    {
+      title: "Parameter map",
+      meta: "one figure across two axes of the grid",
+      tag: "needs vela runs",
+      text: "A heatmap of the grid, so the shape of the result is visible rather than one cell."
+    },
+    {
+      title: "Trades",
+      meta: "the selected cell's trades, entry to exit",
+      tag: "needs vela runs",
+      text: "One mark per trade, by date and return on risk."
+    },
+    {
+      title: "Volatility surface",
+      meta: "strike by expiry by IV, per session",
+      tag: "needs a vela IV grid",
+      text: "Stays empty until vela writes an IV grid per session."
+    }
+  ];
+  for (const pane of panes) grid.appendChild(emptyPanel({ ...pane, height: 240 }));
+  root.appendChild(grid);
 }
-const panes = {
-  analysis: document.getElementById("analysisWs"),
-  research: document.getElementById("researchWs")
+const byId = (id) => document.getElementById(id);
+const generated = () => "generated " + (/* @__PURE__ */ new Date(DATA.today + "T00:00:00")).toLocaleDateString(void 0, { month: "long", day: "numeric", year: "numeric" });
+const SUBTITLES = {
+  analysis: {
+    portfolio: () => watched().length + " watched · " + generated(),
+    metrics: () => "layout only · nothing here is wired to market data yet",
+    pipeline: () => "reserved"
+  },
+  research: {
+    data: () => "fixed datasets · jobs, what is cached, and whether it is fit to run on",
+    parameters: () => "one combo config · any value given as a list is an axis",
+    results: () => "every cell of a run · in-sample beside out-of-sample"
+  }
 };
-const wsTitle = document.getElementById("wsTitle");
-document.getElementById("workspaces").addEventListener("click", (e) => {
-  const btn = e.target.closest("button[data-ws]");
-  if (!btn) return;
-  state.workspace = btn.dataset.ws;
-  document.querySelectorAll("#workspaces button").forEach((b) => b.classList.toggle("active", b === btn));
-  for (const [name, pane] of Object.entries(panes)) pane.classList.toggle("hidden", name !== state.workspace);
-  wsTitle.textContent = btn.textContent;
-  setSubtitle();
-  if (state.workspace === "research") buildResearch();
-  else if (state.view === "accounts") acctTickers.forEach((t) => t.replay());
-});
-function setSubtitle() {
-  document.getElementById("subtitle").textContent = state.workspace === "research" ? "fixed datasets · backtests, sweeps and deep dives" : DATA.chips.length + " open spreads · generated " + (/* @__PURE__ */ new Date(DATA.today + "T00:00:00")).toLocaleDateString(void 0, { month: "long", day: "numeric", year: "numeric" });
+const currentTab = () => state.workspace === "analysis" ? state.analysisTab : state.researchTab;
+function onShow() {
+  byId("subtitle").textContent = SUBTITLES[state.workspace][currentTab()]();
 }
-setSubtitle();
-const views = {
-  accounts: document.getElementById("accountsView"),
-  market: document.getElementById("marketView")
-};
-const posViews = {
-  calendar: document.getElementById("calendarView"),
-  gantt: document.getElementById("ganttView"),
-  table: document.getElementById("tableView")
-};
-document.getElementById("posViews").addEventListener("click", (e) => {
-  const btn = e.target.closest("button[data-pos]");
-  if (!btn) return;
-  state.positions = btn.dataset.pos;
-  document.querySelectorAll("#posViews button").forEach((b) => b.classList.toggle("active", b === btn));
-  for (const [name, node] of Object.entries(posViews)) node.classList.toggle("hidden", name !== state.positions);
+wireTabs(byId("workspaces"), "ws", { analysis: byId("analysisWs"), research: byId("researchWs") }, (name) => {
+  state.workspace = name;
+  byId("wsTitle").textContent = name === "analysis" ? "Analysis" : "Research";
+  onShow();
 });
-document.getElementById("views").addEventListener("click", (e) => {
-  const btn = e.target.closest("button[data-view]");
-  if (!btn) return;
-  state.view = btn.dataset.view;
-  document.querySelectorAll("#views button").forEach((b) => b.classList.toggle("active", b === btn));
-  for (const [name, node] of Object.entries(views)) node.classList.toggle("hidden", name !== state.view);
-  if (state.view === "market") buildMarket();
-  else acctTickers.forEach((ticker) => ticker.replay());
+wireTabs(byId("analysisTabs"), "tab", {
+  portfolio: byId("portfolioTab"),
+  metrics: byId("metricsTab"),
+  pipeline: byId("pipelineTab")
+}, (name) => {
+  state.analysisTab = name;
+  onShow();
 });
-render();</script>
+wireTabs(byId("researchTabs"), "tab", {
+  data: byId("dataTab"),
+  parameters: byId("parametersTab"),
+  results: byId("resultsTab")
+}, (name) => {
+  state.researchTab = name;
+  onShow();
+});
+buildPortfolio();
+buildMetrics();
+buildPipeline();
+buildData();
+buildParameters();
+buildResults();
+onShow();</script>
   <style rel="stylesheet" crossorigin>:root {
     color-scheme: light;
     /* Cool, not warm. The old ground was a cream/copper scheme lifted from the
@@ -1098,109 +612,10 @@ render();</script>
   .viewbar { margin-bottom: 20px; }
   .ws-pane { display: block; }
 
-  .placeholder .ph-lede {
-    margin: 0 0 16px;
-    max-width: 68ch;
-    font-size: 13px;
-    line-height: 1.65;
-    color: var(--text-secondary);
-  }
-  .ph-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 18px;
-    margin-bottom: 14px;
-  }
-  .ph-item .qty { line-height: 1.5; margin-top: 3px; }
-
-  .filters {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 20px;
-  }
-  .filters .fl {
-    font-size: 12px;
-    color: var(--text-muted);
-    margin-right: 4px;
-  }
-  .pill {
-    border: 1px solid var(--border);
-    background: var(--surface-1);
-    backdrop-filter: var(--blur);
-    -webkit-backdrop-filter: var(--blur);
-    box-shadow: inset 0 1px 0 var(--edge);
-    color: var(--text-secondary);
-    padding: 5px 12px;
-    font-size: 12px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background 0.15s, box-shadow 0.15s;
-  }
-  .pill:hover { background: var(--accent-wash); }
-  .pill.active {
-    background: var(--accent-wash);
-    border-color: var(--accent);
-    color: var(--text-primary);
-    box-shadow: 0 0 0 1px var(--accent), 0 0 14px var(--glow);
-  }
-
-  /* Flex, not grid, for the same reason as .acct-body: the last row stretches
-     to fill instead of leaving a dead pane. Cells are transparent -- the glass
-     belongs to the container, and stacking a second film on top of it is what
-     turns frosted into foggy. */
-  .stats {
-    display: flex;
-    flex-wrap: wrap;
-    overflow: hidden;
-    margin-bottom: 20px;
-  }
-  .stat {
-    flex: 1 1 160px;
-    padding: 16px 18px;
-    border-right: 1px solid var(--border);
-  }
-  .stat:last-child { border-right: none; }
-  .stat .label {
-    font-size: 12px;
-    color: var(--text-secondary);
-  }
-  .stat .value {
-    font-size: 26px;
-    font-weight: 600;
-    margin-top: 4px;
-    font-variant-numeric: proportional-nums;
-  }
-  .stat .value.good { color: var(--good-text); }
-  .stat .value.critical { color: var(--critical); }
-
-  .legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 18px;
-    align-items: center;
-    padding: 12px 16px;
-    margin-bottom: 20px;
-    font-size: 12px;
-    color: var(--text-secondary);
-  }
-  .legend .item { display: flex; align-items: center; gap: 6px; }
-  .legend .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
-  .legend .diamond {
-    width: 9px; height: 9px; flex: none;
-    background: var(--cat-orange); transform: rotate(45deg);
-  }
-  .legend .star { width: 12px; height: 12px; flex: none; color: var(--cat-yellow); }
-  .legend .ring {
-    width: 9px; height: 9px; border-radius: 50%; flex: none;
-    box-shadow: 0 0 0 2px var(--warning);
-  }
-
   /* One glass recipe, so every pane on the page catches light the same way:
      a white film, a real blur behind it, a hairline of specular along the top
      edge and a soft drop shadow to lift it off the ground plane. */
-  .card, .acct, .stats, .legend, .views, .tooltip, .fold > summary {
+  .panel, .views, .dag-node {
     position: relative;
     background:
       /* A gradient *inside* the film: real glass is not one flat tint, it is
@@ -1227,8 +642,7 @@ render();</script>
      turbulence at very low opacity is the difference between "blurred" and
      "frosted"; without it a heavy blur looks like a gaussian filter, which is
      exactly what it is. Inline SVG so the page stays self-contained. */
-  .card::after, .acct::after, .stats::after, .legend::after,
-  .views::after, .tooltip::after, .fold > summary::after {
+  .panel::after, .views::after, .dag-node::after {
     content: "";
     position: absolute;
     inset: 0;
@@ -1237,201 +651,6 @@ render();</script>
     mix-blend-mode: overlay;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
   }
-  .card {
-    overflow: hidden;
-    margin-bottom: 28px;
-  }
-  /* Months side by side. `auto-fit` + a 660px floor means the browser decides
-     how many fit: one on a laptop, two on a 1920 screen, three on an ultrawide
-     -- and the floor is what stops it packing in a third column so narrow that
-     a day cell (a seventh of it) can no longer hold a chip. */
-  .months {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(624px, 1fr));
-    gap: 24px;
-    align-items: start;
-  }
-  .months .card { margin-bottom: 0; }
-
-  .month-title {
-    padding: 14px 18px;
-    font-size: 14px;
-    font-weight: 600;
-    border-bottom: 1px solid var(--gridline);
-  }
-  .weekdays {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    border-bottom: 1px solid var(--gridline);
-  }
-  .weekdays div {
-    padding: 8px 10px;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-  }
-  .weeks { display: grid; }
-  .week-row {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    border-bottom: 1px solid var(--gridline);
-  }
-  .week-row:last-child { border-bottom: none; }
-  .day {
-    min-height: 62px;
-    padding: 6px;
-    border-right: 1px solid var(--gridline);
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-  .day:last-child { border-right: none; }
-  .day.outside .daynum { color: var(--text-muted); opacity: 0.5; }
-  .day.today { background: var(--accent-wash); }
-  .daynum {
-    font-size: 12px;
-    color: var(--text-secondary);
-    font-weight: 500;
-  }
-  .day.today .daynum {
-    display: inline-flex;
-    align-self: flex-start;
-    align-items: center;
-    justify-content: center;
-    min-width: 18px; height: 18px;
-    padding: 0 4px;
-    background: var(--accent);
-    color: white;
-    font-weight: 600;
-    box-shadow: 0 0 12px var(--glow);
-  }
-  .chip {
-    position: relative;
-    background: var(--surface-solid);
-    border: 1px solid var(--border);
-    border-left: 3px solid var(--good);
-    padding: 3px 6px 3px 5px;
-    cursor: default;
-    transition: box-shadow 0.15s;
-    /* Three months across means a day cell is ~92px, and "100/120 · 12d" wrapped
-       to a third line at the old size. The strike line shrinks and stops
-       wrapping instead: an overflowing chip is better than a chip that makes
-       every dense day twice as tall. */
-    overflow: hidden;
-  }
-  .chip:hover { box-shadow: 0 0 0 1px var(--border), 0 4px 16px rgba(0,0,0,0.12); }
-  .chip.loss { border-left-color: var(--critical); }
-  .chip.zone { box-shadow: 0 0 0 2px var(--warning), 0 0 10px rgba(250,178,25,0.35); }
-  .chip .tk { font-size: 11.5px; font-weight: 600; line-height: 1.35; }
-  .chip .strikes {
-    font-size: 9.5px;
-    line-height: 1.3;
-    color: var(--text-secondary);
-    white-space: nowrap;
-    letter-spacing: -0.01em;
-  }
-  .chip .badges {
-    position: absolute;
-    top: 3px; right: 4px;
-    display: flex;
-    gap: 2px;
-  }
-  .chip .diamond {
-    width: 7px; height: 7px;
-    background: var(--cat-orange);
-    transform: rotate(45deg);
-  }
-  .chip .star { width: 9px; height: 9px; color: var(--cat-yellow); }
-
-  .gantt-card { padding-bottom: 8px; }
-  .gantt-row {
-    display: grid;
-    grid-template-columns: 150px 1fr;
-    align-items: center;
-    gap: 12px;
-    padding: 7px 18px;
-    border-bottom: 1px solid var(--gridline);
-  }
-  .gantt-row:hover { background: var(--accent-wash); }
-  .gantt-label .tk { font-size: 12px; font-weight: 600; }
-  .gantt-label .strikes { font-size: 11px; color: var(--text-secondary); }
-  .gantt-track { position: relative; height: 24px; }
-  .gantt-track .zone-band {
-    position: absolute;
-    left: 0; top: 2px; bottom: 2px;
-    background: rgba(250, 178, 25, 0.16);
-  }
-  .gantt-track .bar {
-    position: absolute;
-    left: 0; top: 5px; height: 14px;
-    background: var(--good);
-    min-width: 3px;
-  }
-  .gantt-track .bar.loss { background: var(--critical); }
-  .gantt-track .tip-label {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 11px;
-    color: var(--text-secondary);
-    white-space: nowrap;
-    font-variant-numeric: tabular-nums;
-  }
-  .gantt-track .marker {
-    position: absolute;
-    top: 50%;
-    transform: translate(-50%, -50%);
-  }
-  .gantt-track .marker.diamond {
-    width: 8px; height: 8px;
-    background: var(--cat-orange);
-    transform: translate(-50%, -50%) rotate(45deg);
-  }
-  .gantt-track .marker.star { width: 11px; height: 11px; color: var(--cat-yellow); }
-  .gantt-axis {
-    display: grid;
-    grid-template-columns: 150px 1fr;
-    padding: 8px 18px 12px;
-  }
-  .gantt-axis .ticks {
-    position: relative;
-    height: 18px;
-    border-top: 1px solid var(--gridline);
-  }
-  .gantt-axis .tick {
-    position: absolute;
-    top: 5px;
-    font-size: 10px;
-    color: var(--text-muted);
-    transform: translateX(-50%);
-  }
-  .gantt-empty, .cal-empty {
-    padding: 40px;
-    text-align: center;
-    color: var(--text-muted);
-    font-size: 13px;
-  }
-
-  .tooltip {
-    position: fixed;
-    z-index: 20;
-    background: var(--text-primary);
-    color: var(--surface-solid);
-    font-size: 12px;
-    line-height: 1.5;
-    padding: 8px 10px;
-    pointer-events: none;
-    max-width: 240px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.25), 0 0 20px var(--glow);
-    opacity: 0;
-    transition: opacity 0.1s;
-  }
-  .tooltip.show { opacity: 1; }
-  .tooltip b { font-weight: 600; }
-  .tooltip .row { display: flex; justify-content: space-between; gap: 12px; }
-
   table.data {
     width: 100%;
     border-collapse: collapse;
@@ -1461,97 +680,35 @@ render();</script>
   table.data td.critical { color: var(--critical); }
   table.data tr:last-child td { border-bottom: none; }
 
-  /* ---- NumberTicker ---------------------------------------------------
-     A port of https://github.com/joshua-repo/NumberTicker (SwiftUI, itself
-     modelled on Robinhood's ticker). Each digit is its own wheel of 0-9 that
-     springs into place while separators, the currency symbol and the sign
-     stay put.
-
-     Faithful to the original in the parts that make it read as that
-     component: digits run 9 -> 0 top to bottom, so a *rising* digit rolls the
-     strip downward; every wheel is driven by one spring with no stagger; and
-     the first paint starts mid-wheel (the original's 4.5 offset, between 4
-     and 5) and rolls out to the real number.
-
-     One deliberate departure. The original paints its top/bottom fade as a
-     gradient in a caller-supplied background colour; these cards sit on a
-     translucent, blurred surface, so a colour gradient would smear against
-     whatever showed through. Masking fades the digits themselves to
-     transparent instead -- same intent, and it holds over any backdrop. */
-  .ticker {
-    --tk-h: 1.5em;      /* one digit cell: the glyph plus the space it rolls through */
-    --tk-fade: 0.22em;  /* the fog at each end, over the cell's padding only */
-    display: inline-flex;
-    align-items: stretch;
-    height: var(--tk-h);
-    font-variant-numeric: tabular-nums;
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--tk-fade), #000 calc(100% - var(--tk-fade)), transparent 100%);
-    mask-image: linear-gradient(to bottom, transparent 0, #000 var(--tk-fade), #000 calc(100% - var(--tk-fade)), transparent 100%);
-  }
-  .ticker .tk-col {
-    height: var(--tk-h);
-    overflow: hidden;
-  }
-  .ticker .tk-strip {
-    display: flex;
-    flex-direction: column;
-    /* Overdamped-with-a-kick, which is what interpolatingSpring(stiffness: 8,
-       damping: 8, initialVelocity: 2).speed(6) actually resolves to: fast
-       away, barely any overshoot, settles rather than bounces. */
-    transition: transform 620ms cubic-bezier(0.2, 1.06, 0.25, 1);
-    will-change: transform;
-  }
-  .ticker .tk-strip > span {
-    height: var(--tk-h);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .ticker .tk-sep {
-    display: flex;
-    align-items: center;
-    padding: 0 0.02em;
-  }
-  .ticker.tk-lg {
-    font-size: 34px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-  }
-  /* No highlight on the wheel itself: a gradient per digit column paints a
-     visible block behind each glyph rather than a curved surface. The fade
-     mask is what gives the drum its shape. */
-  .ticker.good { color: var(--good-text); }
-  .ticker.critical { color: var(--critical); }
-  @media (prefers-reduced-motion: reduce) {
-    /* The roll is decoration; the number is the content. */
-    .ticker .tk-strip { transition: none; }
-  }
-
-  /* ---- Accounts view -------------------------------------------------- */
-  .acct {
+  /* ---- Panels ---------------------------------------------------------
+     The page's one titled pane. Every region is built from it, so each
+     catches light the same way and an empty pane has the same frame it will
+     have once it holds something. */
+  .panel {
     margin-bottom: 22px;
   }
-  .acct-hd {
+  .panel-hd {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: 12px;
-    flex-wrap: wrap;
     padding: 14px 18px;
     border-bottom: 1px solid var(--border);
   }
-  .acct-hd h2 {
+  .panel-hd h2 {
     margin: 0;
     font-size: 15px;
     font-weight: 600;
     letter-spacing: 0.01em;
   }
-  .acct-meta {
+  .panel-meta {
+    margin-top: 3px;
     font-size: 12px;
     color: var(--text-muted);
     font-variant-numeric: tabular-nums;
   }
-  .acct-tag {
+  /* What a pane is waiting on. UI chrome, not data, hence the accent family. */
+  .panel-tag {
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.06em;
@@ -1559,232 +716,196 @@ render();</script>
     color: var(--copper);
     border: 1px solid var(--copper);
     padding: 2px 8px;
+    white-space: nowrap;
+    /* Never wraps under the title: the context line gives way instead. */
+    flex: none;
   }
-  /* Flex rather than grid, specifically so the last row stretches to fill.
-     An auto-fit grid leaves a dead panel wherever the cell count is not a
-     multiple of the column count, and that gap reads as a rendering fault
-     rather than as empty space. */
-  .acct-body {
-    display: flex;
-    flex-wrap: wrap;
+  .panel-hd > div { min-width: 0; }
+  .panel-body { padding: 14px 18px 16px; }
+  /* A table runs edge to edge inside its pane. */
+  .panel-body.flush { padding: 0; }
+  /* The table must not bring a second glass film with it: a film on a film is
+     what turns frosted into foggy. The pane owns the glass. */
+  .panel table.data {
+    background: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
+    border: none;
   }
-  .acct-body .cell {
-    flex: 1 1 168px;
-    padding: 16px 18px;
-    border-right: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
-  }
-  .acct-body .cell:last-child { border-right: none; }
-  /* The headline number earns roughly two columns, not the whole row. */
-  .acct-body .cell.hero { flex: 2 1 288px; }
-  .cell .label {
-    font-size: 12px;
+  .panel table.data th, .panel table.data td { padding-left: 18px; padding-right: 18px; }
+  table.data th.num, table.data td.num { text-align: right; }
+  table.data td.sym { font-weight: 600; }
+  table.data td.muted { color: var(--text-muted); }
+  table.data th.group {
+    text-align: center;
+    border-left: 1px solid var(--gridline);
     color: var(--text-secondary);
-    margin-bottom: 6px;
   }
-  .cell .sub {
-    font-size: 11px;
+
+  /* An empty pane states its size. The dashed inset is the one mark that says
+     "this space is held, nothing is drawn in it" without drawing anything. */
+  .panel-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 22px;
+    border: 1px dashed var(--border);
+    text-align: center;
+    font-size: 13px;
+    line-height: 1.6;
     color: var(--text-muted);
-    margin-top: 6px;
-    font-variant-numeric: tabular-nums;
   }
-  .cell .value-sm {
-    font-size: 19px;
-    font-weight: 600;
+  .panel-body.flush .panel-empty { border: none; border-top: 1px solid var(--gridline); }
+  .panel.failed { border-color: var(--critical); }
+  .panel.failed .panel-tag { color: var(--critical); border-color: var(--critical); }
+  .panel.failed .panel-empty {
+    color: var(--critical);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    word-break: break-word;
   }
-
-  /* Margin headroom. The bar is a meter, so it carries data colour: green
-     while there is room, amber approaching the line, red past it. */
-  .meter {
-    height: 8px;
-    background: var(--accent-wash);
+  pre.sample {
+    margin: 0;
+    padding: 12px 16px;
+    text-align: left;
+    font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--text-secondary);
     border: 1px solid var(--border);
-    overflow: hidden;
-    margin-top: 10px;
+    background: var(--accent-wash);
   }
-  .meter span {
-    display: block;
-    height: 100%;
-    background: var(--good);
-    transition: width 620ms cubic-bezier(0.2, 1.06, 0.25, 1);
-  }
-  .meter.warn span { background: var(--warning); }
-  .meter.crit span { background: var(--critical); }
 
-  /* The combined card is an assertion the others are not -- it adds numbers
-     from different currencies together -- so it is marked out as one. */
-  .acct.total { border-color: var(--accent); }
-  /* Accounts side by side. The All view is meant to fit one screen, which is
-     why its cards are compact -- a holdings list is what makes a card taller
-     than a viewport, and it lives in the per-account tabs instead. */
-  .acct-grid {
+  /* Panes side by side. `auto-fit` with a floor lets the browser choose the
+     column count; `align-items: stretch` keeps a row of empty panes level. */
+  .panel-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(430px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 22px;
+    margin-bottom: 22px;
+  }
+  .panel-grid.wide { grid-template-columns: repeat(auto-fit, minmax(560px, 1fr)); }
+  .panel-grid .panel { margin-bottom: 0; display: flex; flex-direction: column; }
+  .panel-grid .panel-body { flex: 1; display: flex; flex-direction: column; }
+  .panel-grid .panel-empty { flex: 1; }
+
+  /* Parameters: the config's groups in two stacked columns, and the grid they
+     multiply out to on the right. Columns of stacked panes rather than a grid
+     of them, because the groups differ a lot in length and a grid row would
+     stretch the short ones to match the long one. */
+  .split-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(300px, 0.8fr);
     gap: 22px;
     align-items: start;
   }
-  .acct-grid .acct { margin-bottom: 0; }
+  .split-layout .panel:last-child { margin-bottom: 0; }
+  @media (max-width: 1100px) { .split-layout { grid-template-columns: 1fr; } }
 
-  .acct-nav-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
-    margin-bottom: 18px;
+  /* One field of a config: its name, what it means, its value. */
+  .kv {
+    display: grid;
+    grid-template-columns: 124px 1fr auto;
+    align-items: baseline;
+    gap: 12px;
+    padding: 6px 0;
+    font-size: 13px;
+    border-bottom: 1px solid var(--gridline);
   }
-  .acct-nav-row .fx-pick { margin-bottom: 0; }
-
-  .fx-more {
-    appearance: none;
-    -webkit-appearance: none;
-    /* Room for the chevron the rule below draws, plus enough width that a
-       three-letter code does not reflow the control when one is picked. */
-    padding: 5px 30px 5px 12px;
-    min-width: 84px;
-    /* A chevron drawn in the border colour, so the menu reads as one of the
-       pills beside it rather than as an operating-system control. */
-    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
-                      linear-gradient(135deg, currentColor 50%, transparent 50%);
-    background-position: calc(100% - 14px) 52%, calc(100% - 9px) 52%;
-    background-size: 5px 5px, 5px 5px;
-    background-repeat: no-repeat;
-    font-family: inherit;
-  }
-  .fx-more.active {
-    background-color: var(--accent-wash);
-    border-color: var(--accent);
+  .kv:last-of-type { border-bottom: none; }
+  .kv-key {
+    font: 600 12px ui-monospace, SFMono-Regular, Menlo, monospace;
     color: var(--text-primary);
-    box-shadow: 0 0 0 1px var(--accent), 0 0 14px var(--glow);
+  }
+  .kv-what { font-size: 12px; color: var(--text-muted); }
+  .kv-val { font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+
+  .tagchip {
+    display: inline-block;
+    margin-right: 5px;
+    padding: 1px 7px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
   }
 
-  /* The expiry views fold in under the account cards: they are a way of
-     looking at positions, not a peer of the accounts that hold them. */
+  /* ---- Job graph -------------------------------------------------------
+     Nodes in dependency order with a connector between neighbours. A row, not
+     a drawn graph: the real shape is not decided, and five boxes in a line
+     claim less than arrows would. */
+  /* One row that scrolls rather than wraps: a connector is drawn back to the
+     previous node, and after a wrap the previous node is on the line above.
+     The padding is room for the panes' drop shadows, which a scroll container
+     would otherwise clip. */
+  .dag {
+    display: flex;
+    gap: 26px;
+    overflow-x: auto;
+    margin: 0 -20px;
+    padding: 2px 20px 40px;
+    margin-bottom: -28px;
+  }
+  .dag-node { flex: 1 0 210px; }
+  .dag-node {
+    padding: 13px 15px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  /* The connector reaches back across the gap to the previous node. Drawn on
+     ::before because ::after already carries the pane's grain. */
+  .dag-node + .dag-node::before {
+    content: "";
+    position: absolute;
+    left: -27px;
+    top: 50%;
+    width: 26px;
+    border-top: 1px solid var(--text-muted);
+  }
+  .dag-hd {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .dag-name { font-size: 14px; font-weight: 600; }
+  .dag-owner {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .dag-cmd {
+    font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--text-secondary);
+  }
+  .dag-what { font-size: 12px; line-height: 1.5; color: var(--text-secondary); flex: 1; }
+  .dag-state {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
   .region-title {
-    margin: 34px 0 16px;
+    margin: 30px 0 16px;
     font-size: 12px;
     font-weight: 600;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--text-muted);
   }
-  .fold { margin-bottom: 14px; }
-  .region-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
-  }
-  .region-head .region-title { margin-bottom: 16px; }
-  .fold > summary {
-    cursor: pointer;
-    list-style: none;
-    padding: 11px 16px;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-secondary);
-    border: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    transition: color 0.15s, background 0.15s;
-  }
-  .fold > summary::-webkit-details-marker { display: none; }
-  .fold > summary::before {
-    content: "";
-    width: 0; height: 0;
-    border-left: 5px solid currentColor;
-    border-top: 4px solid transparent;
-    border-bottom: 4px solid transparent;
-    transition: transform 0.15s;
-  }
-  .fold[open] > summary::before { transform: rotate(90deg); }
-  .fold > summary:hover { background: var(--accent-wash); color: var(--text-primary); }
-  .fold[open] > summary { color: var(--text-primary); }
-  .fold > div { padding-top: 16px; }
-
-  .fx-pick {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    flex-wrap: wrap;
-    margin-bottom: 18px;
-  }
-  .fx-pick .fl { margin-right: 2px; }
-  .fx-pick .pill {
-    padding: 4px 10px;
-    font-size: 11px;
-    letter-spacing: 0.04em;
-  }
-  .note.warn { color: var(--critical); }
-
-  .acct-rows {
-    /* No top border: the cells above already draw one along their bottom. */
-    padding: 14px 18px 16px;
-  }
-  .acct-rows h3 {
-    margin: 0 0 10px;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-  }
-  .hold {
-    display: grid;
-    grid-template-columns: 74px 1fr auto;
-    align-items: center;
-    gap: 12px;
-    padding: 5px 0;
-    font-size: 13px;
-  }
-  .hold .sym { font-weight: 600; }
-  .hold .track {
-    position: relative;
-    height: 14px;
-    background: var(--gridline);
-  }
-  .hold .track i {
-    position: absolute;
-    left: 0; top: 0; bottom: 0;
-    background: var(--accent);
-    opacity: 0.55;
-    transition: width 620ms cubic-bezier(0.2, 1.06, 0.25, 1);
-  }
-  .hold .amt {
-    font-variant-numeric: tabular-nums;
-    color: var(--text-secondary);
-    white-space: nowrap;
-  }
-  .hold .qty {
-    font-size: 11px;
-    color: var(--text-muted);
-    font-variant-numeric: tabular-nums;
-  }
-  .ccy-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px 22px;
-    font-size: 12px;
-    color: var(--text-secondary);
-    font-variant-numeric: tabular-nums;
-    padding: 3px 0;
-  }
-  .ccy-row b { color: var(--text-primary); font-weight: 600; }
+  /* The first region of a tab sits directly under the tab row. */
+  .ws-pane > div > .region-title:first-child { margin-top: 0; }
   .note {
     margin-top: 10px;
     font-size: 11px;
+    line-height: 1.5;
     color: var(--text-muted);
   }
-  .acct.failed { border-color: var(--critical); }
-  .acct .err {
-    padding: 16px 18px;
-    font-size: 13px;
-    color: var(--critical);
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    word-break: break-word;
-  }
+  .note.pad { margin: 0; padding: 10px 18px 12px; border-top: 1px solid var(--gridline); }
 
   .hidden { display: none !important; }</style>
 </head>
@@ -1792,11 +913,10 @@ render();</script>
 <div class="page">
   <!--
     Two workspaces, and the line between them is the data, not the layout:
-    ANALYSIS is live -- every snapshot is stale the moment it is read, so the
-    question is always "what do I hold right now". RESEARCH is fixed -- a
-    dataset that does not move, which is what makes a backtest repeatable.
-    Mixing them would put a number that changes under your cursor next to one
-    that must not.
+    ANALYSIS is the market as it is now -- what you are watching and what it is
+    doing. RESEARCH runs over a fixed dataset, which is what makes a backtest
+    repeatable. Mixing them would put a number that changes under your cursor
+    next to one that must not.
   -->
   <header class="hd">
     <div>
@@ -1810,65 +930,38 @@ render();</script>
   </header>
 
   <div class="ws-pane" id="analysisWs">
-    <!--
-      Inside Analysis the split is what you own versus what the market is doing.
-      The expiry views are not a peer of Accounts -- they are a way of looking
-      at the positions an account holds -- so they fold in underneath it.
-    -->
     <div class="viewbar">
-      <div class="views" id="views">
-        <button data-view="accounts" class="active">Accounts</button>
-        <button data-view="market">Market</button>
+      <div class="views" id="analysisTabs">
+        <button data-tab="portfolio" class="active">Portfolio</button>
+        <button data-tab="metrics">Metrics</button>
+        <button data-tab="pipeline">Pipeline</button>
       </div>
     </div>
 
-    <div id="accountsView">
-      <div id="accountsCards"></div>
-
-      <p class="positions-none hidden" id="positionsNone">No option positions in this account.</p>
-
-      <div class="positions" id="positions">
-        <!--
-          One view at a time, not three stacked. Three open panels is three
-          screens of scrolling; the question "when does this expire" is answered
-          by one of these at a time anyway.
-        -->
-        <div class="region-head">
-          <h2 class="region-title">Positions</h2>
-          <div class="views" id="posViews">
-            <button data-pos="calendar" class="active">Calendar</button>
-            <button data-pos="gantt">Timeline</button>
-            <button data-pos="table">Table</button>
-          </div>
-        </div>
-
-        <div class="filters" id="filters">
-          <span class="fl">Underlying</span>
-        </div>
-
-        <div class="stats" id="stats"></div>
-
-        <div class="legend">
-          <span class="item"><span class="dot" style="background:var(--good)"></span>Net gain</span>
-          <span class="item"><span class="dot" style="background:var(--critical)"></span>Net loss</span>
-          <span class="item"><span class="ring"></span>In decision zone</span>
-          <span class="item"><span class="diamond"></span>Earnings before expiry</span>
-          <span class="item"><svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.9-6.3 3.9 1.7-7L2 9.2l7.1-.6z"/></svg>Recent headline</span>
-        </div>
-
-        <div id="calendarView"></div>
-        <div id="ganttView" class="hidden"></div>
-        <div id="tableView" class="hidden"></div>
-      </div>
-    </div>
-
-    <div id="marketView" class="hidden"></div>
+    <div id="portfolioTab"></div>
+    <div id="metricsTab" class="hidden"></div>
+    <div id="pipelineTab" class="hidden"></div>
   </div>
 
-  <div class="ws-pane hidden" id="researchWs"></div>
-</div>
+  <div class="ws-pane hidden" id="researchWs">
+    <!--
+      Left to right is the order the work happens in: get the data and know
+      what state it is in, say which configurations to run, read what came
+      back.
+    -->
+    <div class="viewbar">
+      <div class="views" id="researchTabs">
+        <button data-tab="data" class="active">Data</button>
+        <button data-tab="parameters">Parameters</button>
+        <button data-tab="results">Results</button>
+      </div>
+    </div>
 
-<div class="tooltip" id="tooltip"></div>
+    <div id="dataTab"></div>
+    <div id="parametersTab" class="hidden"></div>
+    <div id="resultsTab" class="hidden"></div>
+  </div>
+</div>
 
 </body>
 </html>

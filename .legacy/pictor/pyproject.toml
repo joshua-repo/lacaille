@@ -1,20 +1,17 @@
 [project]
 name = "pictor"
 version = "0.1.0"
-description = "Visualization layer for option spread positions -- expiry Gantt charts with earnings/news enrichment."
+description = "Rendering layer: a market/research dashboard and weekly research posts."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "plotly>=5.24",
-    "yfinance>=0.2",
     "typer>=0.12",
-    # The only position source pictor's CLI has (no demo fallback) -- core,
-    # not optional, so a plain `uv sync` can't silently strip it back out.
-    # Extras: IBKR for options, Trading212 for the equity account, and
-    # yfinance for `antlia.fx`'s primary rate source (its Frankfurter fallback
-    # is keyless stdlib and needs none). `develop` is antlia's default branch
-    # -- the `playground` branch this used to pin no longer exists upstream.
-    "antlia[ibkr,trading212,yfinance] @ git+https://github.com/joshua-repo/antlia.git@develop",
+    # Nothing imports antlia today: the option-book views that read IBKR
+    # through it went with antlia's account layer (2026-10-07). It stays a
+    # dependency because Portfolio and Metrics are waiting on `antlia.live`,
+    # and no extra is asked for until something reads a vendor through it.
+    # `develop` is antlia's default branch.
+    "antlia @ git+https://github.com/joshua-repo/antlia.git@develop",
 ]
 
 [project.scripts]

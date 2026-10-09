@@ -167,109 +167,10 @@
   .viewbar { margin-bottom: 20px; }
   .ws-pane { display: block; }
 
-  .placeholder .ph-lede {
-    margin: 0 0 16px;
-    max-width: 68ch;
-    font-size: 13px;
-    line-height: 1.65;
-    color: var(--text-secondary);
-  }
-  .ph-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 18px;
-    margin-bottom: 14px;
-  }
-  .ph-item .qty { line-height: 1.5; margin-top: 3px; }
-
-  .filters {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 20px;
-  }
-  .filters .fl {
-    font-size: 12px;
-    color: var(--text-muted);
-    margin-right: 4px;
-  }
-  .pill {
-    border: 1px solid var(--border);
-    background: var(--surface-1);
-    backdrop-filter: var(--blur);
-    -webkit-backdrop-filter: var(--blur);
-    box-shadow: inset 0 1px 0 var(--edge);
-    color: var(--text-secondary);
-    padding: 5px 12px;
-    font-size: 12px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background 0.15s, box-shadow 0.15s;
-  }
-  .pill:hover { background: var(--accent-wash); }
-  .pill.active {
-    background: var(--accent-wash);
-    border-color: var(--accent);
-    color: var(--text-primary);
-    box-shadow: 0 0 0 1px var(--accent), 0 0 14px var(--glow);
-  }
-
-  /* Flex, not grid, for the same reason as .acct-body: the last row stretches
-     to fill instead of leaving a dead pane. Cells are transparent -- the glass
-     belongs to the container, and stacking a second film on top of it is what
-     turns frosted into foggy. */
-  .stats {
-    display: flex;
-    flex-wrap: wrap;
-    overflow: hidden;
-    margin-bottom: 20px;
-  }
-  .stat {
-    flex: 1 1 160px;
-    padding: 16px 18px;
-    border-right: 1px solid var(--border);
-  }
-  .stat:last-child { border-right: none; }
-  .stat .label {
-    font-size: 12px;
-    color: var(--text-secondary);
-  }
-  .stat .value {
-    font-size: 26px;
-    font-weight: 600;
-    margin-top: 4px;
-    font-variant-numeric: proportional-nums;
-  }
-  .stat .value.good { color: var(--good-text); }
-  .stat .value.critical { color: var(--critical); }
-
-  .legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 18px;
-    align-items: center;
-    padding: 12px 16px;
-    margin-bottom: 20px;
-    font-size: 12px;
-    color: var(--text-secondary);
-  }
-  .legend .item { display: flex; align-items: center; gap: 6px; }
-  .legend .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
-  .legend .diamond {
-    width: 9px; height: 9px; flex: none;
-    background: var(--cat-orange); transform: rotate(45deg);
-  }
-  .legend .star { width: 12px; height: 12px; flex: none; color: var(--cat-yellow); }
-  .legend .ring {
-    width: 9px; height: 9px; border-radius: 50%; flex: none;
-    box-shadow: 0 0 0 2px var(--warning);
-  }
-
   /* One glass recipe, so every pane on the page catches light the same way:
      a white film, a real blur behind it, a hairline of specular along the top
      edge and a soft drop shadow to lift it off the ground plane. */
-  .card, .acct, .stats, .legend, .views, .tooltip, .fold > summary {
+  .panel, .views, .dag-node {
     position: relative;
     background:
       /* A gradient *inside* the film: real glass is not one flat tint, it is
@@ -296,8 +197,7 @@
      turbulence at very low opacity is the difference between "blurred" and
      "frosted"; without it a heavy blur looks like a gaussian filter, which is
      exactly what it is. Inline SVG so the page stays self-contained. */
-  .card::after, .acct::after, .stats::after, .legend::after,
-  .views::after, .tooltip::after, .fold > summary::after {
+  .panel::after, .views::after, .dag-node::after {
     content: "";
     position: absolute;
     inset: 0;
@@ -306,201 +206,6 @@
     mix-blend-mode: overlay;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
   }
-  .card {
-    overflow: hidden;
-    margin-bottom: 28px;
-  }
-  /* Months side by side. `auto-fit` + a 660px floor means the browser decides
-     how many fit: one on a laptop, two on a 1920 screen, three on an ultrawide
-     -- and the floor is what stops it packing in a third column so narrow that
-     a day cell (a seventh of it) can no longer hold a chip. */
-  .months {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(624px, 1fr));
-    gap: 24px;
-    align-items: start;
-  }
-  .months .card { margin-bottom: 0; }
-
-  .month-title {
-    padding: 14px 18px;
-    font-size: 14px;
-    font-weight: 600;
-    border-bottom: 1px solid var(--gridline);
-  }
-  .weekdays {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    border-bottom: 1px solid var(--gridline);
-  }
-  .weekdays div {
-    padding: 8px 10px;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-  }
-  .weeks { display: grid; }
-  .week-row {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    border-bottom: 1px solid var(--gridline);
-  }
-  .week-row:last-child { border-bottom: none; }
-  .day {
-    min-height: 62px;
-    padding: 6px;
-    border-right: 1px solid var(--gridline);
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-  .day:last-child { border-right: none; }
-  .day.outside .daynum { color: var(--text-muted); opacity: 0.5; }
-  .day.today { background: var(--accent-wash); }
-  .daynum {
-    font-size: 12px;
-    color: var(--text-secondary);
-    font-weight: 500;
-  }
-  .day.today .daynum {
-    display: inline-flex;
-    align-self: flex-start;
-    align-items: center;
-    justify-content: center;
-    min-width: 18px; height: 18px;
-    padding: 0 4px;
-    background: var(--accent);
-    color: white;
-    font-weight: 600;
-    box-shadow: 0 0 12px var(--glow);
-  }
-  .chip {
-    position: relative;
-    background: var(--surface-solid);
-    border: 1px solid var(--border);
-    border-left: 3px solid var(--good);
-    padding: 3px 6px 3px 5px;
-    cursor: default;
-    transition: box-shadow 0.15s;
-    /* Three months across means a day cell is ~92px, and "100/120 · 12d" wrapped
-       to a third line at the old size. The strike line shrinks and stops
-       wrapping instead: an overflowing chip is better than a chip that makes
-       every dense day twice as tall. */
-    overflow: hidden;
-  }
-  .chip:hover { box-shadow: 0 0 0 1px var(--border), 0 4px 16px rgba(0,0,0,0.12); }
-  .chip.loss { border-left-color: var(--critical); }
-  .chip.zone { box-shadow: 0 0 0 2px var(--warning), 0 0 10px rgba(250,178,25,0.35); }
-  .chip .tk { font-size: 11.5px; font-weight: 600; line-height: 1.35; }
-  .chip .strikes {
-    font-size: 9.5px;
-    line-height: 1.3;
-    color: var(--text-secondary);
-    white-space: nowrap;
-    letter-spacing: -0.01em;
-  }
-  .chip .badges {
-    position: absolute;
-    top: 3px; right: 4px;
-    display: flex;
-    gap: 2px;
-  }
-  .chip .diamond {
-    width: 7px; height: 7px;
-    background: var(--cat-orange);
-    transform: rotate(45deg);
-  }
-  .chip .star { width: 9px; height: 9px; color: var(--cat-yellow); }
-
-  .gantt-card { padding-bottom: 8px; }
-  .gantt-row {
-    display: grid;
-    grid-template-columns: 150px 1fr;
-    align-items: center;
-    gap: 12px;
-    padding: 7px 18px;
-    border-bottom: 1px solid var(--gridline);
-  }
-  .gantt-row:hover { background: var(--accent-wash); }
-  .gantt-label .tk { font-size: 12px; font-weight: 600; }
-  .gantt-label .strikes { font-size: 11px; color: var(--text-secondary); }
-  .gantt-track { position: relative; height: 24px; }
-  .gantt-track .zone-band {
-    position: absolute;
-    left: 0; top: 2px; bottom: 2px;
-    background: rgba(250, 178, 25, 0.16);
-  }
-  .gantt-track .bar {
-    position: absolute;
-    left: 0; top: 5px; height: 14px;
-    background: var(--good);
-    min-width: 3px;
-  }
-  .gantt-track .bar.loss { background: var(--critical); }
-  .gantt-track .tip-label {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 11px;
-    color: var(--text-secondary);
-    white-space: nowrap;
-    font-variant-numeric: tabular-nums;
-  }
-  .gantt-track .marker {
-    position: absolute;
-    top: 50%;
-    transform: translate(-50%, -50%);
-  }
-  .gantt-track .marker.diamond {
-    width: 8px; height: 8px;
-    background: var(--cat-orange);
-    transform: translate(-50%, -50%) rotate(45deg);
-  }
-  .gantt-track .marker.star { width: 11px; height: 11px; color: var(--cat-yellow); }
-  .gantt-axis {
-    display: grid;
-    grid-template-columns: 150px 1fr;
-    padding: 8px 18px 12px;
-  }
-  .gantt-axis .ticks {
-    position: relative;
-    height: 18px;
-    border-top: 1px solid var(--gridline);
-  }
-  .gantt-axis .tick {
-    position: absolute;
-    top: 5px;
-    font-size: 10px;
-    color: var(--text-muted);
-    transform: translateX(-50%);
-  }
-  .gantt-empty, .cal-empty {
-    padding: 40px;
-    text-align: center;
-    color: var(--text-muted);
-    font-size: 13px;
-  }
-
-  .tooltip {
-    position: fixed;
-    z-index: 20;
-    background: var(--text-primary);
-    color: var(--surface-solid);
-    font-size: 12px;
-    line-height: 1.5;
-    padding: 8px 10px;
-    pointer-events: none;
-    max-width: 240px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.25), 0 0 20px var(--glow);
-    opacity: 0;
-    transition: opacity 0.1s;
-  }
-  .tooltip.show { opacity: 1; }
-  .tooltip b { font-weight: 600; }
-  .tooltip .row { display: flex; justify-content: space-between; gap: 12px; }
-
   table.data {
     width: 100%;
     border-collapse: collapse;
@@ -530,97 +235,35 @@
   table.data td.critical { color: var(--critical); }
   table.data tr:last-child td { border-bottom: none; }
 
-  /* ---- NumberTicker ---------------------------------------------------
-     A port of https://github.com/joshua-repo/NumberTicker (SwiftUI, itself
-     modelled on Robinhood's ticker). Each digit is its own wheel of 0-9 that
-     springs into place while separators, the currency symbol and the sign
-     stay put.
-
-     Faithful to the original in the parts that make it read as that
-     component: digits run 9 -> 0 top to bottom, so a *rising* digit rolls the
-     strip downward; every wheel is driven by one spring with no stagger; and
-     the first paint starts mid-wheel (the original's 4.5 offset, between 4
-     and 5) and rolls out to the real number.
-
-     One deliberate departure. The original paints its top/bottom fade as a
-     gradient in a caller-supplied background colour; these cards sit on a
-     translucent, blurred surface, so a colour gradient would smear against
-     whatever showed through. Masking fades the digits themselves to
-     transparent instead -- same intent, and it holds over any backdrop. */
-  .ticker {
-    --tk-h: 1.5em;      /* one digit cell: the glyph plus the space it rolls through */
-    --tk-fade: 0.22em;  /* the fog at each end, over the cell's padding only */
-    display: inline-flex;
-    align-items: stretch;
-    height: var(--tk-h);
-    font-variant-numeric: tabular-nums;
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--tk-fade), #000 calc(100% - var(--tk-fade)), transparent 100%);
-    mask-image: linear-gradient(to bottom, transparent 0, #000 var(--tk-fade), #000 calc(100% - var(--tk-fade)), transparent 100%);
-  }
-  .ticker .tk-col {
-    height: var(--tk-h);
-    overflow: hidden;
-  }
-  .ticker .tk-strip {
-    display: flex;
-    flex-direction: column;
-    /* Overdamped-with-a-kick, which is what interpolatingSpring(stiffness: 8,
-       damping: 8, initialVelocity: 2).speed(6) actually resolves to: fast
-       away, barely any overshoot, settles rather than bounces. */
-    transition: transform 620ms cubic-bezier(0.2, 1.06, 0.25, 1);
-    will-change: transform;
-  }
-  .ticker .tk-strip > span {
-    height: var(--tk-h);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .ticker .tk-sep {
-    display: flex;
-    align-items: center;
-    padding: 0 0.02em;
-  }
-  .ticker.tk-lg {
-    font-size: 34px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-  }
-  /* No highlight on the wheel itself: a gradient per digit column paints a
-     visible block behind each glyph rather than a curved surface. The fade
-     mask is what gives the drum its shape. */
-  .ticker.good { color: var(--good-text); }
-  .ticker.critical { color: var(--critical); }
-  @media (prefers-reduced-motion: reduce) {
-    /* The roll is decoration; the number is the content. */
-    .ticker .tk-strip { transition: none; }
-  }
-
-  /* ---- Accounts view -------------------------------------------------- */
-  .acct {
+  /* ---- Panels ---------------------------------------------------------
+     The page's one titled pane. Every region is built from it, so each
+     catches light the same way and an empty pane has the same frame it will
+     have once it holds something. */
+  .panel {
     margin-bottom: 22px;
   }
-  .acct-hd {
+  .panel-hd {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: 12px;
-    flex-wrap: wrap;
     padding: 14px 18px;
     border-bottom: 1px solid var(--border);
   }
-  .acct-hd h2 {
+  .panel-hd h2 {
     margin: 0;
     font-size: 15px;
     font-weight: 600;
     letter-spacing: 0.01em;
   }
-  .acct-meta {
+  .panel-meta {
+    margin-top: 3px;
     font-size: 12px;
     color: var(--text-muted);
     font-variant-numeric: tabular-nums;
   }
-  .acct-tag {
+  /* What a pane is waiting on. UI chrome, not data, hence the accent family. */
+  .panel-tag {
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.06em;
@@ -628,231 +271,195 @@
     color: var(--copper);
     border: 1px solid var(--copper);
     padding: 2px 8px;
+    white-space: nowrap;
+    /* Never wraps under the title: the context line gives way instead. */
+    flex: none;
   }
-  /* Flex rather than grid, specifically so the last row stretches to fill.
-     An auto-fit grid leaves a dead panel wherever the cell count is not a
-     multiple of the column count, and that gap reads as a rendering fault
-     rather than as empty space. */
-  .acct-body {
-    display: flex;
-    flex-wrap: wrap;
+  .panel-hd > div { min-width: 0; }
+  .panel-body { padding: 14px 18px 16px; }
+  /* A table runs edge to edge inside its pane. */
+  .panel-body.flush { padding: 0; }
+  /* The table must not bring a second glass film with it: a film on a film is
+     what turns frosted into foggy. The pane owns the glass. */
+  .panel table.data {
+    background: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
+    border: none;
   }
-  .acct-body .cell {
-    flex: 1 1 168px;
-    padding: 16px 18px;
-    border-right: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
-  }
-  .acct-body .cell:last-child { border-right: none; }
-  /* The headline number earns roughly two columns, not the whole row. */
-  .acct-body .cell.hero { flex: 2 1 288px; }
-  .cell .label {
-    font-size: 12px;
+  .panel table.data th, .panel table.data td { padding-left: 18px; padding-right: 18px; }
+  table.data th.num, table.data td.num { text-align: right; }
+  table.data td.sym { font-weight: 600; }
+  table.data td.muted { color: var(--text-muted); }
+  table.data th.group {
+    text-align: center;
+    border-left: 1px solid var(--gridline);
     color: var(--text-secondary);
-    margin-bottom: 6px;
   }
-  .cell .sub {
-    font-size: 11px;
+
+  /* An empty pane states its size. The dashed inset is the one mark that says
+     "this space is held, nothing is drawn in it" without drawing anything. */
+  .panel-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 22px;
+    border: 1px dashed var(--border);
+    text-align: center;
+    font-size: 13px;
+    line-height: 1.6;
     color: var(--text-muted);
-    margin-top: 6px;
-    font-variant-numeric: tabular-nums;
   }
-  .cell .value-sm {
-    font-size: 19px;
-    font-weight: 600;
+  .panel-body.flush .panel-empty { border: none; border-top: 1px solid var(--gridline); }
+  .panel.failed { border-color: var(--critical); }
+  .panel.failed .panel-tag { color: var(--critical); border-color: var(--critical); }
+  .panel.failed .panel-empty {
+    color: var(--critical);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    word-break: break-word;
   }
-
-  /* Margin headroom. The bar is a meter, so it carries data colour: green
-     while there is room, amber approaching the line, red past it. */
-  .meter {
-    height: 8px;
-    background: var(--accent-wash);
+  pre.sample {
+    margin: 0;
+    padding: 12px 16px;
+    text-align: left;
+    font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--text-secondary);
     border: 1px solid var(--border);
-    overflow: hidden;
-    margin-top: 10px;
+    background: var(--accent-wash);
   }
-  .meter span {
-    display: block;
-    height: 100%;
-    background: var(--good);
-    transition: width 620ms cubic-bezier(0.2, 1.06, 0.25, 1);
-  }
-  .meter.warn span { background: var(--warning); }
-  .meter.crit span { background: var(--critical); }
 
-  /* The combined card is an assertion the others are not -- it adds numbers
-     from different currencies together -- so it is marked out as one. */
-  .acct.total { border-color: var(--accent); }
-  /* Accounts side by side. The All view is meant to fit one screen, which is
-     why its cards are compact -- a holdings list is what makes a card taller
-     than a viewport, and it lives in the per-account tabs instead. */
-  .acct-grid {
+  /* Panes side by side. `auto-fit` with a floor lets the browser choose the
+     column count; `align-items: stretch` keeps a row of empty panes level. */
+  .panel-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(430px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 22px;
+    margin-bottom: 22px;
+  }
+  .panel-grid.wide { grid-template-columns: repeat(auto-fit, minmax(560px, 1fr)); }
+  .panel-grid .panel { margin-bottom: 0; display: flex; flex-direction: column; }
+  .panel-grid .panel-body { flex: 1; display: flex; flex-direction: column; }
+  .panel-grid .panel-empty { flex: 1; }
+
+  /* Parameters: the config's groups in two stacked columns, and the grid they
+     multiply out to on the right. Columns of stacked panes rather than a grid
+     of them, because the groups differ a lot in length and a grid row would
+     stretch the short ones to match the long one. */
+  .split-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(300px, 0.8fr);
     gap: 22px;
     align-items: start;
   }
-  .acct-grid .acct { margin-bottom: 0; }
+  .split-layout .panel:last-child { margin-bottom: 0; }
+  @media (max-width: 1100px) { .split-layout { grid-template-columns: 1fr; } }
 
-  .acct-nav-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
-    margin-bottom: 18px;
+  /* One field of a config: its name, what it means, its value. */
+  .kv {
+    display: grid;
+    grid-template-columns: 124px 1fr auto;
+    align-items: baseline;
+    gap: 12px;
+    padding: 6px 0;
+    font-size: 13px;
+    border-bottom: 1px solid var(--gridline);
   }
-  .acct-nav-row .fx-pick { margin-bottom: 0; }
-
-  .fx-more {
-    appearance: none;
-    -webkit-appearance: none;
-    /* Room for the chevron the rule below draws, plus enough width that a
-       three-letter code does not reflow the control when one is picked. */
-    padding: 5px 30px 5px 12px;
-    min-width: 84px;
-    /* A chevron drawn in the border colour, so the menu reads as one of the
-       pills beside it rather than as an operating-system control. */
-    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
-                      linear-gradient(135deg, currentColor 50%, transparent 50%);
-    background-position: calc(100% - 14px) 52%, calc(100% - 9px) 52%;
-    background-size: 5px 5px, 5px 5px;
-    background-repeat: no-repeat;
-    font-family: inherit;
-  }
-  .fx-more.active {
-    background-color: var(--accent-wash);
-    border-color: var(--accent);
+  .kv:last-of-type { border-bottom: none; }
+  .kv-key {
+    font: 600 12px ui-monospace, SFMono-Regular, Menlo, monospace;
     color: var(--text-primary);
-    box-shadow: 0 0 0 1px var(--accent), 0 0 14px var(--glow);
+  }
+  .kv-what { font-size: 12px; color: var(--text-muted); }
+  .kv-val { font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+
+  .tagchip {
+    display: inline-block;
+    margin-right: 5px;
+    padding: 1px 7px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
   }
 
-  /* The expiry views fold in under the account cards: they are a way of
-     looking at positions, not a peer of the accounts that hold them. */
+  /* ---- Job graph -------------------------------------------------------
+     Nodes in dependency order with a connector between neighbours. A row, not
+     a drawn graph: the real shape is not decided, and five boxes in a line
+     claim less than arrows would. */
+  /* One row that scrolls rather than wraps: a connector is drawn back to the
+     previous node, and after a wrap the previous node is on the line above.
+     The padding is room for the panes' drop shadows, which a scroll container
+     would otherwise clip. */
+  .dag {
+    display: flex;
+    gap: 26px;
+    overflow-x: auto;
+    margin: 0 -20px;
+    padding: 2px 20px 40px;
+    margin-bottom: -28px;
+  }
+  .dag-node { flex: 1 0 210px; }
+  .dag-node {
+    padding: 13px 15px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  /* The connector reaches back across the gap to the previous node. Drawn on
+     ::before because ::after already carries the pane's grain. */
+  .dag-node + .dag-node::before {
+    content: "";
+    position: absolute;
+    left: -27px;
+    top: 50%;
+    width: 26px;
+    border-top: 1px solid var(--text-muted);
+  }
+  .dag-hd {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .dag-name { font-size: 14px; font-weight: 600; }
+  .dag-owner {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .dag-cmd {
+    font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--text-secondary);
+  }
+  .dag-what { font-size: 12px; line-height: 1.5; color: var(--text-secondary); flex: 1; }
+  .dag-state {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
   .region-title {
-    margin: 34px 0 16px;
+    margin: 30px 0 16px;
     font-size: 12px;
     font-weight: 600;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--text-muted);
   }
-  .fold { margin-bottom: 14px; }
-  .region-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
-  }
-  .region-head .region-title { margin-bottom: 16px; }
-  .fold > summary {
-    cursor: pointer;
-    list-style: none;
-    padding: 11px 16px;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-secondary);
-    border: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    transition: color 0.15s, background 0.15s;
-  }
-  .fold > summary::-webkit-details-marker { display: none; }
-  .fold > summary::before {
-    content: "";
-    width: 0; height: 0;
-    border-left: 5px solid currentColor;
-    border-top: 4px solid transparent;
-    border-bottom: 4px solid transparent;
-    transition: transform 0.15s;
-  }
-  .fold[open] > summary::before { transform: rotate(90deg); }
-  .fold > summary:hover { background: var(--accent-wash); color: var(--text-primary); }
-  .fold[open] > summary { color: var(--text-primary); }
-  .fold > div { padding-top: 16px; }
-
-  .fx-pick {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    flex-wrap: wrap;
-    margin-bottom: 18px;
-  }
-  .fx-pick .fl { margin-right: 2px; }
-  .fx-pick .pill {
-    padding: 4px 10px;
-    font-size: 11px;
-    letter-spacing: 0.04em;
-  }
-  .note.warn { color: var(--critical); }
-
-  .acct-rows {
-    /* No top border: the cells above already draw one along their bottom. */
-    padding: 14px 18px 16px;
-  }
-  .acct-rows h3 {
-    margin: 0 0 10px;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-  }
-  .hold {
-    display: grid;
-    grid-template-columns: 74px 1fr auto;
-    align-items: center;
-    gap: 12px;
-    padding: 5px 0;
-    font-size: 13px;
-  }
-  .hold .sym { font-weight: 600; }
-  .hold .track {
-    position: relative;
-    height: 14px;
-    background: var(--gridline);
-  }
-  .hold .track i {
-    position: absolute;
-    left: 0; top: 0; bottom: 0;
-    background: var(--accent);
-    opacity: 0.55;
-    transition: width 620ms cubic-bezier(0.2, 1.06, 0.25, 1);
-  }
-  .hold .amt {
-    font-variant-numeric: tabular-nums;
-    color: var(--text-secondary);
-    white-space: nowrap;
-  }
-  .hold .qty {
-    font-size: 11px;
-    color: var(--text-muted);
-    font-variant-numeric: tabular-nums;
-  }
-  .ccy-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px 22px;
-    font-size: 12px;
-    color: var(--text-secondary);
-    font-variant-numeric: tabular-nums;
-    padding: 3px 0;
-  }
-  .ccy-row b { color: var(--text-primary); font-weight: 600; }
+  /* The first region of a tab sits directly under the tab row. */
+  .ws-pane > div > .region-title:first-child { margin-top: 0; }
   .note {
     margin-top: 10px;
     font-size: 11px;
+    line-height: 1.5;
     color: var(--text-muted);
   }
-  .acct.failed { border-color: var(--critical); }
-  .acct .err {
-    padding: 16px 18px;
-    font-size: 13px;
-    color: var(--critical);
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    word-break: break-word;
-  }
+  .note.pad { margin: 0; padding: 10px 18px 12px; border-top: 1px solid var(--gridline); }
 
   .hidden { display: none !important; }

@@ -10,20 +10,10 @@ from typing import Annotated
 
 import typer
 
-from antlia.auth.errors import AuthError
-from antlia.fx import rates as fx_rates
+from pictor.charts import build_calendar_html
+from pictor.watchlist import load_watchlist
 
-#: What the display-currency menu offers. antlia's own default set plus EUR --
-#: both of its sources carry it, and it is one of the three the picker is
-#: actually used for. Not pushed upstream: which currencies a dashboard offers
-#: is a display question, not a property of the rate providers.
-DISPLAY_CURRENCIES = ("USD", "GBP", "EUR", "HKD", "JPY")
-
-from pictor.accounts import fetch_overview, fetch_overviews
-from pictor.charts import build_calendar_html, build_chart
-from pictor.pairing import pair_spreads
-
-app = typer.Typer(help="Pictor: visualization layer for option spread positions.")
+app = typer.Typer(help="Pictor: the rendering layer -- a market/research dashboard and weekly posts.")
 
 
 @app.callback()
@@ -31,135 +21,28 @@ def _main() -> None:
     pass
 
 
-def _fetch_legs(profile: str):
-    """IBKR's option legs, or a clean exit saying why they could not be read.
-
-    `fetch_overview` reports a dead broker as a value rather than raising,
-    because the dashboard renders around one missing account. The Gantt chart
-    has no such fallback -- it *is* the option book -- so the single-source
-    commands turn that value back into a failure here. Where the error becomes
-    fatal is the caller's decision, which is why it lives in the CLI and not in
-    `pictor.accounts`.
-    """
-    overview = fetch_overview("ibkr", profile)
-    if not overview.ok:
-        typer.echo(f"error: ibkr ({profile}) unreadable -- {overview.error}", err=True)
-        raise typer.Exit(1)
-    return overview.option_legs
-
-
-ProfileOption = Annotated[str, typer.Option(help="antlia IBKR profile to connect with: 'live' (default) or 'paper'.")]
-
-
-@app.command()
-def gantt(
-    profile: ProfileOption = "live",
-    output: Annotated[Path, typer.Option("--output", "-o", help="Path to write the HTML chart to.")] = Path("bull_spread_gantt.html"),
-    open_browser: Annotated[bool, typer.Option("--open", help="Open the chart in a browser after writing it.")] = False,
-) -> None:
-    """Render the bull-spread expiry Gantt chart."""
-    spreads = pair_spreads(_fetch_legs(profile))
-    fig = build_chart(spreads)
-    fig.write_html(output, include_plotlyjs="cdn")
-    typer.echo(f"Wrote {output} ({len(spreads)} spreads)")
-
-    if open_browser:
-        _serve_and_open(output)
-
-
 @app.command()
 def calendar(
-    profile: ProfileOption = "live",
-    output: Annotated[Path, typer.Option("--output", "-o", help="Path to write the HTML chart to.")] = Path("bull_spread_calendar.html"),
-    open_browser: Annotated[bool, typer.Option("--open", help="Open the chart in a browser after writing it.")] = False,
-    accounts: Annotated[bool, typer.Option("--accounts/--no-accounts", help="Include the per-account view (reads every configured broker).")] = True,
-    t212_profile: Annotated[str, typer.Option(help="antlia Trading212 profile: 'live' (default) or 'demo'.")] = "live",
-    fx: Annotated[bool, typer.Option("--fx/--no-fx", help="Fetch exchange rates so accounts can be shown in one currency and totalled.")] = True,
+    output: Annotated[Path, typer.Option("--output", "-o", help="Path to write the HTML page to.")] = Path("bull_spread_calendar.html"),
+    open_browser: Annotated[bool, typer.Option("--open", help="Open the page in a browser after writing it.")] = False,
+    watchlist: Annotated[Path | None, typer.Option("--watchlist", help="Watchlist TOML for Analysis > Portfolio (default: $PICTOR_WATCHLIST, else ~/.pictor/watchlist.toml).")] = None,
 ) -> None:
-    """Render the bull-spread expiry calendar (month grid with per-day chips)."""
-    if accounts:
-        # One snapshot per account, feeding both the spread views and the
-        # Accounts tab -- reading the option legs separately would open a
-        # second connection to the same gateway for the same data.
-        overviews = fetch_overviews((("ibkr", profile), ("trading212", t212_profile)))
-        legs = [leg for o in overviews if o.ok for leg in o.option_legs]
-        for o in overviews:
-            if not o.ok:
-                # Not fatal: the other broker's card, and the whole spread
-                # view, are still worth rendering. The page says so too.
-                typer.echo(f"warning: {o.source} ({o.profile}) unreadable -- {o.error}", err=True)
-    else:
-        overviews, legs = [], _fetch_legs(profile)
+    """Render the dashboard: the Analysis and Research workspaces in one page."""
+    try:
+        watch = load_watchlist(watchlist)
+    except ValueError as exc:
+        # A watchlist with a typo in it is fatal, unlike a missing one: an
+        # empty Portfolio would look exactly like having no list at all.
+        typer.echo(f"error: watchlist unreadable -- {exc}", err=True)
+        raise typer.Exit(1) from None
+    if not watch.found:
+        typer.echo(f"note: no watchlist at {watch.path} -- Portfolio will be empty", err=True)
 
-    # Fetched whenever there is an account to show. Not gated on holding two
-    # currencies: a single GBP account is still worth viewing in USD, and one
-    # USD account can hold JPY lines. antlia caches the table for 6h, so the
-    # round-trip is paid about twice a day however often this runs.
-    rates = None
-    if fx and any(o.ok for o in overviews):
-        held = {o.currency for o in overviews if o.ok and o.currency}
-        held |= {h.currency for o in overviews if o.ok for h in o.holdings if h.currency}
-        try:
-            rates = fx_rates(tuple(dict.fromkeys((*DISPLAY_CURRENCIES, *sorted(held)))))
-        except AuthError:
-            # antlia raises when it has no table at all, which is right for a
-            # library -- "I could not answer" is not "the answer is nothing".
-            # A dashboard's policy is the opposite: a page without a currency
-            # picker is still a page, so the failure stops here. Narrowed to
-            # AuthError (RatesUnavailable subclasses it) rather than bare
-            # Exception, so a real bug in antlia still surfaces.
-            typer.echo("warning: no exchange rates available -- accounts stay in their own currencies", err=True)
-        if rates is not None and rates.stale:
-            typer.echo(f"warning: using stale {rates.source} rates from {rates.as_of:%Y-%m-%d %H:%M}", err=True)
-
-    spreads = pair_spreads(legs)
-    html = build_calendar_html(spreads, accounts=overviews, rates=rates)
-    output.write_text(html)
-    reached = sum(1 for o in overviews if o.ok)
-    suffix = f", {reached} of {len(overviews)} accounts" if overviews else ""
-    if rates:
-        suffix += f", fx via {rates.source}"
-    typer.echo(f"Wrote {output} ({len(spreads)} spreads{suffix})")
+    output.write_text(build_calendar_html(watchlist=watch))
+    typer.echo(f"Wrote {output} ({len(watch.symbols)} watched)")
 
     if open_browser:
         _serve_and_open(output)
-
-
-@app.command()
-def positions(
-    source: Annotated[str, typer.Option(help="Broker to read: 'ibkr', 'trading212', or 'all'.")] = "all",
-    profile: Annotated[str, typer.Option(help="antlia profile: ibkr 'live'/'paper', trading212 'live'/'demo'.")] = "live",
-) -> None:
-    """Print what each broker currently holds -- options from IBKR, shares from both.
-
-    A read-only reachability check as much as a report: it is the quickest way
-    to tell a credential/gateway problem apart from a charting one, since the
-    charts only ever show IBKR's option book.
-    """
-    names = ["ibkr", "trading212"] if source == "all" else [source]
-    for name in names:
-        typer.echo(f"\n{name} ({profile})")
-        # One snapshot per broker, carrying both the options and the shares.
-        # Reading them separately meant two connections to the same gateway for
-        # data that arrives together.
-        overview = fetch_overview(name, profile)
-        if not overview.ok:
-            typer.echo(f"  unavailable -- {overview.error}")
-            continue
-        legs, shares = overview.option_legs, overview.holdings
-        for leg in legs:
-            typer.echo(
-                f"  option  {leg.underlying:<6} {leg.expiry} {leg.strike:>8g}{leg.right}"
-                f"  {leg.position:>+5g}  pnl {leg.unrealized_pnl:>10,.2f}"
-            )
-        for pos in shares:
-            value = f"{pos.market_value:>12,.2f}" if pos.market_value is not None else f"{'--':>12}"
-            typer.echo(
-                f"  share   {pos.symbol:<6} {pos.quantity:>10g} @ {pos.price or 0:>10,.2f}"
-                f"  {value} {pos.currency}"
-            )
-        if not legs and not shares:
-            typer.echo("  (no positions)")
 
 
 def _is_wsl() -> bool:
