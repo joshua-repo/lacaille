@@ -1,0 +1,36 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+
+# Credentials live in ~/.antlia, never in the repo -- but a stray copy here
+# must not be one `git add .` away from being published.
+credentials.toml
+.env
+
+# Local data tiers
+data/
+
+# Editor configs are local-only: launch configurations are exactly where a key
+# gets pasted "just for a second". Credentials belong in ~/.antlia.
+.vscode/
+
+# LLM instruction files are local-only. CLAUDE.md records live account numbers,
+# measured vendor entitlements and other specifics that must not ship if this
+# repo is ever published -- and it is written for whoever picks the work up
+# next, not for the reader of the repo. README.md is the public document.
+CLAUDE.md
+AGENTS.md
+.claude/
+.cursor/
+.github/agents/
+.aider*
+
+CLAUDE.md
