@@ -1,0 +1,10 @@
+# Copy to ~/.pictor/watchlist.toml (or point PICTOR_WATCHLIST / --watchlist at
+# a file of your own). One [[symbol]] table per row of Analysis > Portfolio.
+
+[[symbol]]
+ticker = "XXXX"
+note = "why it is on the list"
+tags = ["sector", "theme"]
+
+[[symbol]]
+ticker = "YYYY"

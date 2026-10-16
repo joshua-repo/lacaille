@@ -1,0 +1,465 @@
+  :root {
+    color-scheme: light;
+    /* Cool, not warm. The old ground was a cream/copper scheme lifted from the
+       logo; it read as vintage stationery next to numbers that update. The
+       navy survives (it is the brand's), the sepia does not: the plane is a
+       blue-grey, the glass is neutral white, and the accent is an electric
+       blue with a cyan/violet wash behind the panes. */
+    /* Glass is a white-tinted film over whatever is behind it, not a solid
+       panel with an opacity. Keeping the tint white in both themes is what
+       makes the blur read as frosted glass rather than as a dimmed surface. */
+    --surface-1:      rgba(255, 255, 255, 0.46);
+    /* The specular hairline along a pane's top edge -- the single cheapest
+       cue that a surface is glass and not paint. */
+    --edge:           rgba(255, 255, 255, 0.98);
+    --film-hi:        rgba(255, 255, 255, 0.42);
+    --film-lo:        rgba(255, 255, 255, 0.04);
+    --rim:            rgba(255, 255, 255, 0.34);
+    --seat:           rgba(16, 40, 70, 0.05);
+    --grain:          0.16;
+    --shade:          rgba(16, 34, 58, 0.14);
+    --surface-solid:  #fdfcfa;
+    --page-plane:     #e4e9f0;
+    --text-primary:   #0e1f33;
+    --text-secondary: #45607a;
+    --text-muted:     #7d90a3;
+    --gridline:       rgba(16, 40, 70, 0.09);
+    --baseline:       #c3c2b7;
+    --border:         rgba(16, 40, 70, 0.13);
+    --good:           #0ca30c;
+    --good-text:      #006300;
+    --critical:       #d03b3b;
+    --warning:        #fab219;
+    --cat-orange:     #eb6834;
+    --cat-yellow:     #eda100;
+    --accent:         #1f6feb;
+    --accent-wash:    rgba(31, 111, 235, 0.11);
+    --copper:         #0aa2b8;
+    --copper-wash:    rgba(10, 162, 184, 0.13);
+    --glow:           rgba(31, 111, 235, 0.30);
+    /* Ground-plane light. Saturated on purpose and only ever seen *through*
+       the panes -- glass with nothing behind it is just a grey rectangle. */
+    --wash-a:         rgba(31, 111, 235, 0.30);
+    --wash-b:         rgba(10, 162, 184, 0.28);
+    --wash-c:         rgba(109, 94, 240, 0.24);
+    /* Saturation is what stops a heavy blur from turning the colour behind it
+       to grey, and it is most of the difference between "frosted" and "foggy". */
+    /* Heavier than a decorative blur and more saturated than the source, which
+       is what stops a big blur from draining colour to grey. brightness lifts
+       the film so the pane sits *above* the plane rather than in it. */
+    --blur: blur(38px) saturate(200%) brightness(1.06);
+  }
+  /* Dark is opt-in via <html data-theme="dark">, not automatic. The page is a
+     white-glass design first; following the OS would hand a reader the dark
+     palette by default and that is not what this is tuned for. */
+  :root[data-theme="dark"] {
+      color-scheme: dark;
+      /* White film, low alpha -- the dark ground shows through it rather than
+         the panel being navy. A navy-tinted surface reads as muddy plastic. */
+      --surface-1:      rgba(255, 255, 255, 0.055);
+      --edge:           rgba(255, 255, 255, 0.28);
+      --film-hi:        rgba(255, 255, 255, 0.07);
+      --film-lo:        rgba(255, 255, 255, 0.00);
+      --rim:            rgba(255, 255, 255, 0.09);
+      --seat:           rgba(0, 0, 0, 0.22);
+      --grain:          0.22;
+      --shade:          rgba(0, 0, 0, 0.28);
+      --surface-solid:  #101c27;
+      --page-plane:     #05080f;
+      --text-primary:   #faf9f7;
+      --text-secondary: #9db2c6;
+      --text-muted:     #6b8195;
+      --gridline:       rgba(255, 255, 255, 0.10);
+      --baseline:       #383835;
+      --border:         rgba(255, 255, 255, 0.13);
+      --good:           #0ca30c;
+      --good-text:      #0ca30c;
+      --critical:       #e66767;
+      --warning:        #fab219;
+      --cat-orange:     #d95926;
+      --cat-yellow:     #c98500;
+      --accent:         #58a6ff;
+      --accent-wash:    rgba(88, 166, 255, 0.18);
+      --copper:         #2fd4e8;
+      --copper-wash:    rgba(47, 212, 232, 0.16);
+      --glow:           rgba(88, 166, 255, 0.45);
+      --wash-a:         rgba(88, 166, 255, 0.34);
+      --wash-b:         rgba(47, 212, 232, 0.24);
+      --wash-c:         rgba(109, 94, 240, 0.26);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+      radial-gradient(1200px 680px at 6% -14%, var(--wash-a), transparent 60%),
+      radial-gradient(1000px 560px at 102% 2%, var(--wash-b), transparent 58%),
+      radial-gradient(820px 820px at 62% 108%, var(--wash-c), transparent 58%),
+      var(--page-plane);
+    background-attachment: fixed;
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .page {
+    /* Wide by design: the calendar lays months out side by side, and a fixed
+       1120px column left most of a widescreen empty. */
+    max-width: min(2120px, 96vw);
+    margin: 0 auto;
+    padding: 32px 20px 64px;
+  }
+  header.hd {
+    position: relative;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 22px;
+    padding-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  header.hd::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--text-primary), var(--accent) 55%, var(--copper));
+    opacity: 0.5;
+  }
+  header.hd h1 {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0;
+  }
+  header.hd p {
+    margin: 4px 0 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+
+  .views {
+    display: inline-flex;
+    overflow: hidden;
+    flex: none;
+  }
+  .views button {
+    border: none;
+    border-right: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    padding: 7px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+  }
+  .views button:last-child { border-right: none; }
+  .views button:hover { background: var(--accent-wash); }
+  .views button.active {
+    background: var(--accent-wash);
+    color: var(--text-primary);
+    box-shadow: inset 0 0 0 1px var(--accent), inset 0 0 14px var(--glow);
+  }
+
+  /* The workspace switcher is a change of context, not a change of tab, so it
+     sits in the header next to the title while the view tabs live below it. */
+  .views.ws button { font-weight: 600; letter-spacing: 0.02em; }
+  .viewbar { margin-bottom: 20px; }
+  .ws-pane { display: block; }
+
+  /* One glass recipe, so every pane on the page catches light the same way:
+     a white film, a real blur behind it, a hairline of specular along the top
+     edge and a soft drop shadow to lift it off the ground plane. */
+  .panel, .views, .dag-node {
+    position: relative;
+    background:
+      /* A gradient *inside* the film: real glass is not one flat tint, it is
+         brighter where light enters the top edge and settles toward the bottom.
+         Without this the pane reads as a translucent rectangle. */
+      linear-gradient(160deg, var(--film-hi), var(--film-lo) 62%),
+      var(--surface-1);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border: 1px solid var(--border);
+    box-shadow:
+      /* the specular rim: bright along the top edge, a fainter line all the
+         way round, and a dark seat at the bottom so the pane has thickness */
+      inset 0 1px 0 var(--edge),
+      inset 0 0 0 1px var(--rim),
+      inset 0 -1px 0 var(--seat),
+      /* two shadows, not one: a tight contact shadow and a wide soft one --
+         a single blur reads as a drop shadow, two read as a pane floating */
+      0 1px 2px var(--shade),
+      0 22px 48px -16px var(--shade);
+  }
+
+  /* Frosted glass is not perfectly smooth -- it scatters. A single tile of
+     turbulence at very low opacity is the difference between "blurred" and
+     "frosted"; without it a heavy blur looks like a gaussian filter, which is
+     exactly what it is. Inline SVG so the page stays self-contained. */
+  .panel::after, .views::after, .dag-node::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: var(--grain);
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  table.data {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--surface-1);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    box-shadow: inset 0 1px 0 var(--edge), 0 10px 30px var(--shade);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    font-size: 13px;
+  }
+  table.data th, table.data td {
+    text-align: left;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--gridline);
+  }
+  table.data tr:hover td { background: var(--accent-wash); }
+  table.data th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  table.data td.num { font-variant-numeric: tabular-nums; }
+  table.data td.good { color: var(--good-text); }
+  table.data td.critical { color: var(--critical); }
+  table.data tr:last-child td { border-bottom: none; }
+
+  /* ---- Panels ---------------------------------------------------------
+     The page's one titled pane. Every region is built from it, so each
+     catches light the same way and an empty pane has the same frame it will
+     have once it holds something. */
+  .panel {
+    margin-bottom: 22px;
+  }
+  .panel-hd {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  .panel-hd h2 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  .panel-meta {
+    margin-top: 3px;
+    font-size: 12px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  /* What a pane is waiting on. UI chrome, not data, hence the accent family. */
+  .panel-tag {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--copper);
+    border: 1px solid var(--copper);
+    padding: 2px 8px;
+    white-space: nowrap;
+    /* Never wraps under the title: the context line gives way instead. */
+    flex: none;
+  }
+  .panel-hd > div { min-width: 0; }
+  .panel-body { padding: 14px 18px 16px; }
+  /* A table runs edge to edge inside its pane. */
+  .panel-body.flush { padding: 0; }
+  /* The table must not bring a second glass film with it: a film on a film is
+     what turns frosted into foggy. The pane owns the glass. */
+  .panel table.data {
+    background: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
+    border: none;
+  }
+  .panel table.data th, .panel table.data td { padding-left: 18px; padding-right: 18px; }
+  table.data th.num, table.data td.num { text-align: right; }
+  table.data td.sym { font-weight: 600; }
+  table.data td.muted { color: var(--text-muted); }
+  table.data th.group {
+    text-align: center;
+    border-left: 1px solid var(--gridline);
+    color: var(--text-secondary);
+  }
+
+  /* An empty pane states its size. The dashed inset is the one mark that says
+     "this space is held, nothing is drawn in it" without drawing anything. */
+  .panel-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 22px;
+    border: 1px dashed var(--border);
+    text-align: center;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-muted);
+  }
+  .panel-body.flush .panel-empty { border: none; border-top: 1px solid var(--gridline); }
+  .panel.failed { border-color: var(--critical); }
+  .panel.failed .panel-tag { color: var(--critical); border-color: var(--critical); }
+  .panel.failed .panel-empty {
+    color: var(--critical);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    word-break: break-word;
+  }
+  pre.sample {
+    margin: 0;
+    padding: 12px 16px;
+    text-align: left;
+    font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    background: var(--accent-wash);
+  }
+
+  /* Panes side by side. `auto-fit` with a floor lets the browser choose the
+     column count; `align-items: stretch` keeps a row of empty panes level. */
+  .panel-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 22px;
+    margin-bottom: 22px;
+  }
+  .panel-grid.wide { grid-template-columns: repeat(auto-fit, minmax(560px, 1fr)); }
+  .panel-grid .panel { margin-bottom: 0; display: flex; flex-direction: column; }
+  .panel-grid .panel-body { flex: 1; display: flex; flex-direction: column; }
+  .panel-grid .panel-empty { flex: 1; }
+
+  /* Parameters: the config's groups in two stacked columns, and the grid they
+     multiply out to on the right. Columns of stacked panes rather than a grid
+     of them, because the groups differ a lot in length and a grid row would
+     stretch the short ones to match the long one. */
+  .split-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(300px, 0.8fr);
+    gap: 22px;
+    align-items: start;
+  }
+  .split-layout .panel:last-child { margin-bottom: 0; }
+  @media (max-width: 1100px) { .split-layout { grid-template-columns: 1fr; } }
+
+  /* One field of a config: its name, what it means, its value. */
+  .kv {
+    display: grid;
+    grid-template-columns: 124px 1fr auto;
+    align-items: baseline;
+    gap: 12px;
+    padding: 6px 0;
+    font-size: 13px;
+    border-bottom: 1px solid var(--gridline);
+  }
+  .kv:last-of-type { border-bottom: none; }
+  .kv-key {
+    font: 600 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--text-primary);
+  }
+  .kv-what { font-size: 12px; color: var(--text-muted); }
+  .kv-val { font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+
+  .tagchip {
+    display: inline-block;
+    margin-right: 5px;
+    padding: 1px 7px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+  }
+
+  /* ---- Job graph -------------------------------------------------------
+     Nodes in dependency order with a connector between neighbours. A row, not
+     a drawn graph: the real shape is not decided, and five boxes in a line
+     claim less than arrows would. */
+  /* One row that scrolls rather than wraps: a connector is drawn back to the
+     previous node, and after a wrap the previous node is on the line above.
+     The padding is room for the panes' drop shadows, which a scroll container
+     would otherwise clip. */
+  .dag {
+    display: flex;
+    gap: 26px;
+    overflow-x: auto;
+    margin: 0 -20px;
+    padding: 2px 20px 40px;
+    margin-bottom: -28px;
+  }
+  .dag-node { flex: 1 0 210px; }
+  .dag-node {
+    padding: 13px 15px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  /* The connector reaches back across the gap to the previous node. Drawn on
+     ::before because ::after already carries the pane's grain. */
+  .dag-node + .dag-node::before {
+    content: "";
+    position: absolute;
+    left: -27px;
+    top: 50%;
+    width: 26px;
+    border-top: 1px solid var(--text-muted);
+  }
+  .dag-hd {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .dag-name { font-size: 14px; font-weight: 600; }
+  .dag-owner {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .dag-cmd {
+    font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--text-secondary);
+  }
+  .dag-what { font-size: 12px; line-height: 1.5; color: var(--text-secondary); flex: 1; }
+  .dag-state {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .region-title {
+    margin: 30px 0 16px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  /* The first region of a tab sits directly under the tab row. */
+  .ws-pane > div > .region-title:first-child { margin-top: 0; }
+  .note {
+    margin-top: 10px;
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--text-muted);
+  }
+  .note.pad { margin: 0; padding: 10px 18px 12px; border-top: 1px solid var(--gridline); }
+
+  .hidden { display: none !important; }

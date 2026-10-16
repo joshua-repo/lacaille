@@ -1,0 +1,14 @@
+{
+  "name": "pictor-web",
+  "private": true,
+  "type": "module",
+  "description": "Front end for pictor's dashboard. Built to ONE self-contained HTML file.",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite"
+  },
+  "devDependencies": {
+    "vite": "^7.1.5",
+    "vite-plugin-singlefile": "^2.3.0"
+  }
+}

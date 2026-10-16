@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pictor</title>
+<link rel="stylesheet" href="/src/styles.css" />
+</head>
+<body>
+<div class="page">
+  <!--
+    Two workspaces, and the line between them is the data, not the layout:
+    ANALYSIS is the market as it is now -- what you are watching and what it is
+    doing. RESEARCH runs over a fixed dataset, which is what makes a backtest
+    repeatable. Mixing them would put a number that changes under your cursor
+    next to one that must not.
+  -->
+  <header class="hd">
+    <div>
+      <h1 id="wsTitle">Analysis</h1>
+      <p id="subtitle"></p>
+    </div>
+    <div class="views ws" id="workspaces">
+      <button data-ws="analysis" class="active">Analysis</button>
+      <button data-ws="research">Research</button>
+    </div>
+  </header>
+
+  <div class="ws-pane" id="analysisWs">
+    <div class="viewbar">
+      <div class="views" id="analysisTabs">
+        <button data-tab="portfolio" class="active">Portfolio</button>
+        <button data-tab="metrics">Metrics</button>
+        <button data-tab="pipeline">Pipeline</button>
+      </div>
+    </div>
+
+    <div id="portfolioTab"></div>
+    <div id="metricsTab" class="hidden"></div>
+    <div id="pipelineTab" class="hidden"></div>
+  </div>
+
+  <div class="ws-pane hidden" id="researchWs">
+    <!--
+      Left to right is the order the work happens in: get the data and know
+      what state it is in, say which configurations to run, read what came
+      back.
+    -->
+    <div class="viewbar">
+      <div class="views" id="researchTabs">
+        <button data-tab="data" class="active">Data</button>
+        <button data-tab="parameters">Parameters</button>
+        <button data-tab="results">Results</button>
+      </div>
+    </div>
+
+    <div id="dataTab"></div>
+    <div id="parametersTab" class="hidden"></div>
+    <div id="resultsTab" class="hidden"></div>
+  </div>
+</div>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

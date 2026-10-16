@@ -1,0 +1,967 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pictor</title>
+  <script type="module" crossorigin>(function polyfill() {
+  const relList = document.createElement("link").relList;
+  if (relList && relList.supports && relList.supports("modulepreload")) return;
+  for (const link of document.querySelectorAll('link[rel="modulepreload"]')) processPreload(link);
+  new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      if (mutation.type !== "childList") continue;
+      for (const node of mutation.addedNodes) if (node.tagName === "LINK" && node.rel === "modulepreload") processPreload(node);
+    }
+  }).observe(document, {
+    childList: true,
+    subtree: true
+  });
+  function getFetchOpts(link) {
+    const fetchOpts = {};
+    if (link.integrity) fetchOpts.integrity = link.integrity;
+    if (link.referrerPolicy) fetchOpts.referrerPolicy = link.referrerPolicy;
+    if (link.crossOrigin === "use-credentials") fetchOpts.credentials = "include";
+    else if (link.crossOrigin === "anonymous") fetchOpts.credentials = "omit";
+    else fetchOpts.credentials = "same-origin";
+    return fetchOpts;
+  }
+  function processPreload(link) {
+    if (link.ep) return;
+    link.ep = true;
+    const fetchOpts = getFetchOpts(link);
+    fetch(link.href, fetchOpts);
+  }
+})();
+const DATA = __PICTOR_DATA__;
+function wireTabs(bar, attr, panes, onShow2) {
+  bar.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-" + attr + "]");
+    if (!btn) return;
+    const name = btn.dataset[attr];
+    bar.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b === btn));
+    for (const [key, pane] of Object.entries(panes)) pane.classList.toggle("hidden", key !== name);
+    if (onShow2) onShow2(name);
+  });
+}
+const state = {
+  workspace: "analysis",
+  analysisTab: "portfolio",
+  researchTab: "data"
+};
+function el(tag, cls, text) {
+  const node = document.createElement(tag);
+  if (cls) node.className = cls;
+  if (text !== void 0) node.textContent = text;
+  return node;
+}
+function panel({ title, meta, tag, cls }) {
+  const root = el("section", "panel" + (cls ? " " + cls : ""));
+  const head = el("div", "panel-hd");
+  const left = el("div");
+  left.appendChild(el("h2", null, title));
+  if (meta) left.appendChild(el("div", "panel-meta", meta));
+  head.appendChild(left);
+  if (tag) head.appendChild(el("span", "panel-tag", tag));
+  root.appendChild(head);
+  const body = el("div", "panel-body");
+  root.appendChild(body);
+  return { root, body };
+}
+function emptyBody(text, height) {
+  const node = el("div", "panel-empty", text);
+  if (height) node.style.minHeight = height + "px";
+  return node;
+}
+function emptyPanel({ title, meta, tag, cls, text, height }) {
+  const { root, body } = panel({ title, meta, tag, cls });
+  body.appendChild(emptyBody(text, height));
+  return root;
+}
+function regionTitle(text) {
+  return el("h2", "region-title", text);
+}
+const JOBS = [
+  {
+    name: "plan",
+    owner: "antlia",
+    command: "antlia-history plan",
+    what: "What a fill would ask the vendor for, without asking."
+  },
+  {
+    name: "fill",
+    owner: "antlia",
+    command: "antlia-history fill",
+    what: "Fetch what is missing and append it to the store. Spends metered requests."
+  },
+  {
+    name: "check",
+    owner: "antlia",
+    command: "antlia-history check",
+    what: "Unreadable files, leaked writes, ledger mismatches."
+  },
+  {
+    name: "readiness",
+    owner: "vela",
+    command: "vela check",
+    what: "Is this window runnable, and if not, why. Writes readiness.json.",
+    pending: true
+  },
+  {
+    name: "combo",
+    owner: "vela",
+    command: "vela combo",
+    what: "Run every cell of a parameter grid against one pinned dataset.",
+    pending: true
+  }
+];
+function jobNode(job) {
+  const node = el("div", "dag-node");
+  const head = el("div", "dag-hd");
+  head.appendChild(el("span", "dag-name", job.name));
+  head.appendChild(el("span", "dag-owner", job.owner));
+  node.appendChild(head);
+  node.appendChild(el("code", "dag-cmd", job.command));
+  node.appendChild(el("div", "dag-what", job.what));
+  node.appendChild(el("div", "dag-state", job.pending ? "not built in vela yet" : "not wired"));
+  return node;
+}
+function buildData() {
+  const root = document.getElementById("dataTab");
+  root.appendChild(regionTitle("Jobs"));
+  const dag = el("div", "dag");
+  for (const job of JOBS) dag.appendChild(jobNode(job));
+  root.appendChild(dag);
+  root.appendChild(el(
+    "div",
+    "note",
+    "Shown in dependency order, left to right. Nothing is triggered from this page yet; the commands are the ones each project already ships or has planned."
+  ));
+  root.appendChild(regionTitle("Datasets"));
+  const grid = el("div", "panel-grid wide");
+  grid.appendChild(emptyPanel({
+    title: "Cache",
+    meta: "what the store holds: symbol, table, date range, last ingest",
+    tag: "needs a store read",
+    text: "One row per symbol and table, with the dates held drawn as a band and the gaps left open.",
+    height: 260
+  }));
+  grid.appendChild(emptyPanel({
+    title: "Quality",
+    meta: "per window: held, missing, denied, sessions without a chain, divergent sessions",
+    tag: "needs vela check",
+    text: "One readiness report per checked window. A refusal is a result and is listed with its reason.",
+    height: 260
+  }));
+  root.appendChild(grid);
+}
+const PANES = [
+  {
+    title: "Price & returns",
+    meta: "close and cumulative return, per watched symbol",
+    tag: "needs antlia live/",
+    text: "A line per symbol, rebased to the start of the window."
+  },
+  {
+    title: "Realized volatility",
+    meta: "rolling close-to-close, by window",
+    tag: "needs antlia live/",
+    text: "Annualised volatility over short, medium and long windows."
+  },
+  {
+    title: "Drawdown",
+    meta: "depth and duration from the running peak",
+    tag: "needs antlia live/",
+    text: "Underwater curve per symbol, with the current drawdown called out."
+  },
+  {
+    title: "Correlation",
+    meta: "pairwise return correlation across the watchlist",
+    tag: "needs antlia live/",
+    text: "A symbol-by-symbol matrix over the selected window."
+  },
+  {
+    title: "Implied volatility",
+    meta: "IV rank and term structure",
+    tag: "needs an IV source",
+    text: "Where each symbol's implied volatility sits in its own history, and across expiries."
+  },
+  {
+    title: "Events",
+    meta: "earnings dates and headlines for the watchlist",
+    tag: "not wired",
+    text: "What is scheduled, and what just happened, per symbol."
+  }
+];
+function buildMetrics() {
+  const root = document.getElementById("metricsTab");
+  const grid = el("div", "panel-grid wide");
+  for (const pane of PANES) grid.appendChild(emptyPanel({ ...pane, height: 220 }));
+  root.appendChild(grid);
+}
+const DASH = "—";
+const GROUPS = [
+  { title: "Data", meta: "the window every cell runs on, loaded once", fields: [
+    ["symbol", "the underlying"],
+    ["start", "first session"],
+    ["end", "last session"],
+    ["max_dte", "how far out the chain is read"],
+    ["as_of", "optional: pin the read to one ingest"]
+  ] },
+  { title: "Split", meta: "mandatory: every cell is scored on both sides", fields: [
+    ["in_sample_end", "choosing among cells uses only what is before this"]
+  ] },
+  { title: "Strategy", meta: "a list here is an axis", fields: [
+    ["right", "P or C"],
+    ["moneyness", "short strike / spot"],
+    ["width", "dollars between strikes"],
+    ["entry_dte", "the entry window, in days"],
+    ["take_profit", "fraction of max profit"],
+    ["stop_loss", "fraction of max loss"],
+    ["exit_dte", "close at this many days"],
+    ["gate", "none, or a signal with its threshold; none is the null"]
+  ] },
+  { title: "Execution", meta: "costs decide the sign of a result", fields: [
+    ["haircut", "half-spreads crossed per leg"],
+    ["commission", "dollars per contract"]
+  ] }
+];
+function fieldRows(body, fields) {
+  for (const [name, what] of fields) {
+    const row = el("div", "kv");
+    row.appendChild(el("code", "kv-key", name));
+    row.appendChild(el("span", "kv-what", what));
+    row.appendChild(el("span", "kv-val", DASH));
+    body.appendChild(row);
+  }
+}
+function buildParameters() {
+  const root = document.getElementById("parametersTab");
+  const layout = el("div", "split-layout");
+  const columns = [el("div"), el("div")];
+  const placement = { Data: 0, Split: 0, Strategy: 1, Execution: 0 };
+  for (const group of GROUPS) {
+    const { root: card, body: body2 } = panel({ title: group.title, meta: group.meta });
+    fieldRows(body2, group.fields);
+    columns[placement[group.title]].appendChild(card);
+  }
+  layout.append(...columns);
+  const { root: grid, body } = panel({
+    title: "Grid",
+    meta: "the cartesian product of every axis",
+    tag: "no config loaded"
+  });
+  fieldRows(body, [
+    ["axes", "values given as lists"],
+    ["cells", "how many configurations were tried"],
+    ["config", "the file this grid was read from"]
+  ]);
+  body.appendChild(el(
+    "div",
+    "note",
+    "Every cell is written, including the ones that lose and the ones that never trade. The count is kept so the best cell can be weighed against the number of tries."
+  ));
+  layout.appendChild(grid);
+  root.appendChild(layout);
+}
+function buildPipeline() {
+  document.getElementById("pipelineTab").appendChild(emptyPanel({
+    title: "Pipeline",
+    meta: "full width · shape undecided",
+    tag: "reserved",
+    text: "Reserved. Nothing is designed here yet.",
+    height: 460
+  }));
+}
+const SAMPLE = [
+  "[[symbol]]",
+  'ticker = "XXXX"',
+  'note = "why it is on the list"',
+  'tags = ["sector", "theme"]'
+].join("\n");
+const QUOTE_COLUMNS = ["Last", "Change", "IV rank"];
+function watched() {
+  return DATA.watchlist ? DATA.watchlist.symbols : [];
+}
+function buildPortfolio() {
+  const root = document.getElementById("portfolioTab");
+  const list = DATA.watchlist;
+  const symbols = watched();
+  const { root: card, body } = panel({
+    title: "Watchlist",
+    meta: list ? list.path + " · " + symbols.length + (symbols.length === 1 ? " symbol" : " symbols") : "no watchlist was given to this page",
+    tag: "quotes need antlia live/"
+  });
+  if (!symbols.length) {
+    const why = !list ? "This page was rendered without a watchlist." : !list.found ? "No watchlist file at " + list.path + "." : list.path + " lists no symbols.";
+    const empty = emptyBody(why + " One [[symbol]] table per row:");
+    empty.appendChild(el("pre", "sample", SAMPLE));
+    body.appendChild(empty);
+    root.appendChild(card);
+    return;
+  }
+  const table = el("table", "data");
+  const head = el("tr");
+  for (const h of ["Ticker", "Note", "Tags", ...QUOTE_COLUMNS]) {
+    const th = el("th", QUOTE_COLUMNS.includes(h) ? "num" : null, h);
+    head.appendChild(th);
+  }
+  const thead = el("thead");
+  thead.appendChild(head);
+  table.appendChild(thead);
+  const tbody = el("tbody");
+  for (const s of symbols) {
+    const tr = el("tr");
+    tr.appendChild(el("td", "sym", s.ticker));
+    tr.appendChild(el("td", "muted", s.note || ""));
+    const tags = el("td");
+    for (const t of s.tags) tags.appendChild(el("span", "tagchip", t));
+    tr.appendChild(tags);
+    for (let i = 0; i < QUOTE_COLUMNS.length; i++) tr.appendChild(el("td", "num muted", DASH));
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  body.classList.add("flush");
+  body.appendChild(table);
+  card.appendChild(el(
+    "div",
+    "note pad",
+    "Last, Change and IV rank stay empty until there is a market-data layer to read them from. Nothing on this tab is fetched."
+  ));
+  root.appendChild(card);
+}
+const HALVES = ["In-sample", "Out-of-sample"];
+const FIGURES = ["Trades", "t-stat", "Total P&L", "Sharpe"];
+function cellsTable() {
+  const table = el("table", "data");
+  const thead = el("thead");
+  const groups = el("tr");
+  for (const h of ["", ""]) groups.appendChild(el("th", null, h));
+  for (const half of HALVES) {
+    const th = el("th", "group", half);
+    th.colSpan = FIGURES.length;
+    groups.appendChild(th);
+  }
+  groups.appendChild(el("th", null, ""));
+  thead.appendChild(groups);
+  const cols = el("tr");
+  cols.appendChild(el("th", null, "Cell"));
+  cols.appendChild(el("th", null, "Parameters"));
+  for (let i = 0; i < HALVES.length; i++) {
+    for (const f of FIGURES) cols.appendChild(el("th", "num", f));
+  }
+  cols.appendChild(el("th", "num", "Null"));
+  thead.appendChild(cols);
+  table.appendChild(thead);
+  return table;
+}
+function buildResults() {
+  const root = document.getElementById("resultsTab");
+  const { root: cells, body } = panel({
+    title: "Cells",
+    meta: "every configuration of the selected run, none hidden",
+    tag: "needs vela runs",
+    cls: "stack"
+  });
+  body.classList.add("flush");
+  body.appendChild(cellsTable());
+  body.appendChild(emptyBody("No run to show. A run is a folder vela writes; this table gets one row per cell in it.", 120));
+  root.appendChild(cells);
+  const grid = el("div", "panel-grid");
+  const panes = [
+    {
+      title: "Equity",
+      meta: "the selected cell's curve, with the in-sample boundary marked",
+      tag: "needs vela runs",
+      text: "Equity over the window, the null's curve behind it."
+    },
+    {
+      title: "Parameter map",
+      meta: "one figure across two axes of the grid",
+      tag: "needs vela runs",
+      text: "A heatmap of the grid, so the shape of the result is visible rather than one cell."
+    },
+    {
+      title: "Trades",
+      meta: "the selected cell's trades, entry to exit",
+      tag: "needs vela runs",
+      text: "One mark per trade, by date and return on risk."
+    },
+    {
+      title: "Volatility surface",
+      meta: "strike by expiry by IV, per session",
+      tag: "needs a vela IV grid",
+      text: "Stays empty until vela writes an IV grid per session."
+    }
+  ];
+  for (const pane of panes) grid.appendChild(emptyPanel({ ...pane, height: 240 }));
+  root.appendChild(grid);
+}
+const byId = (id) => document.getElementById(id);
+const generated = () => "generated " + (/* @__PURE__ */ new Date(DATA.today + "T00:00:00")).toLocaleDateString(void 0, { month: "long", day: "numeric", year: "numeric" });
+const SUBTITLES = {
+  analysis: {
+    portfolio: () => watched().length + " watched · " + generated(),
+    metrics: () => "layout only · nothing here is wired to market data yet",
+    pipeline: () => "reserved"
+  },
+  research: {
+    data: () => "fixed datasets · jobs, what is cached, and whether it is fit to run on",
+    parameters: () => "one combo config · any value given as a list is an axis",
+    results: () => "every cell of a run · in-sample beside out-of-sample"
+  }
+};
+const currentTab = () => state.workspace === "analysis" ? state.analysisTab : state.researchTab;
+function onShow() {
+  byId("subtitle").textContent = SUBTITLES[state.workspace][currentTab()]();
+}
+wireTabs(byId("workspaces"), "ws", { analysis: byId("analysisWs"), research: byId("researchWs") }, (name) => {
+  state.workspace = name;
+  byId("wsTitle").textContent = name === "analysis" ? "Analysis" : "Research";
+  onShow();
+});
+wireTabs(byId("analysisTabs"), "tab", {
+  portfolio: byId("portfolioTab"),
+  metrics: byId("metricsTab"),
+  pipeline: byId("pipelineTab")
+}, (name) => {
+  state.analysisTab = name;
+  onShow();
+});
+wireTabs(byId("researchTabs"), "tab", {
+  data: byId("dataTab"),
+  parameters: byId("parametersTab"),
+  results: byId("resultsTab")
+}, (name) => {
+  state.researchTab = name;
+  onShow();
+});
+buildPortfolio();
+buildMetrics();
+buildPipeline();
+buildData();
+buildParameters();
+buildResults();
+onShow();</script>
+  <style rel="stylesheet" crossorigin>:root {
+    color-scheme: light;
+    /* Cool, not warm. The old ground was a cream/copper scheme lifted from the
+       logo; it read as vintage stationery next to numbers that update. The
+       navy survives (it is the brand's), the sepia does not: the plane is a
+       blue-grey, the glass is neutral white, and the accent is an electric
+       blue with a cyan/violet wash behind the panes. */
+    /* Glass is a white-tinted film over whatever is behind it, not a solid
+       panel with an opacity. Keeping the tint white in both themes is what
+       makes the blur read as frosted glass rather than as a dimmed surface. */
+    --surface-1:      rgba(255, 255, 255, 0.46);
+    /* The specular hairline along a pane's top edge -- the single cheapest
+       cue that a surface is glass and not paint. */
+    --edge:           rgba(255, 255, 255, 0.98);
+    --film-hi:        rgba(255, 255, 255, 0.42);
+    --film-lo:        rgba(255, 255, 255, 0.04);
+    --rim:            rgba(255, 255, 255, 0.34);
+    --seat:           rgba(16, 40, 70, 0.05);
+    --grain:          0.16;
+    --shade:          rgba(16, 34, 58, 0.14);
+    --surface-solid:  #fdfcfa;
+    --page-plane:     #e4e9f0;
+    --text-primary:   #0e1f33;
+    --text-secondary: #45607a;
+    --text-muted:     #7d90a3;
+    --gridline:       rgba(16, 40, 70, 0.09);
+    --baseline:       #c3c2b7;
+    --border:         rgba(16, 40, 70, 0.13);
+    --good:           #0ca30c;
+    --good-text:      #006300;
+    --critical:       #d03b3b;
+    --warning:        #fab219;
+    --cat-orange:     #eb6834;
+    --cat-yellow:     #eda100;
+    --accent:         #1f6feb;
+    --accent-wash:    rgba(31, 111, 235, 0.11);
+    --copper:         #0aa2b8;
+    --copper-wash:    rgba(10, 162, 184, 0.13);
+    --glow:           rgba(31, 111, 235, 0.30);
+    /* Ground-plane light. Saturated on purpose and only ever seen *through*
+       the panes -- glass with nothing behind it is just a grey rectangle. */
+    --wash-a:         rgba(31, 111, 235, 0.30);
+    --wash-b:         rgba(10, 162, 184, 0.28);
+    --wash-c:         rgba(109, 94, 240, 0.24);
+    /* Saturation is what stops a heavy blur from turning the colour behind it
+       to grey, and it is most of the difference between "frosted" and "foggy". */
+    /* Heavier than a decorative blur and more saturated than the source, which
+       is what stops a big blur from draining colour to grey. brightness lifts
+       the film so the pane sits *above* the plane rather than in it. */
+    --blur: blur(38px) saturate(200%) brightness(1.06);
+  }
+  /* Dark is opt-in via <html data-theme="dark">, not automatic. The page is a
+     white-glass design first; following the OS would hand a reader the dark
+     palette by default and that is not what this is tuned for. */
+  :root[data-theme="dark"] {
+      color-scheme: dark;
+      /* White film, low alpha -- the dark ground shows through it rather than
+         the panel being navy. A navy-tinted surface reads as muddy plastic. */
+      --surface-1:      rgba(255, 255, 255, 0.055);
+      --edge:           rgba(255, 255, 255, 0.28);
+      --film-hi:        rgba(255, 255, 255, 0.07);
+      --film-lo:        rgba(255, 255, 255, 0.00);
+      --rim:            rgba(255, 255, 255, 0.09);
+      --seat:           rgba(0, 0, 0, 0.22);
+      --grain:          0.22;
+      --shade:          rgba(0, 0, 0, 0.28);
+      --surface-solid:  #101c27;
+      --page-plane:     #05080f;
+      --text-primary:   #faf9f7;
+      --text-secondary: #9db2c6;
+      --text-muted:     #6b8195;
+      --gridline:       rgba(255, 255, 255, 0.10);
+      --baseline:       #383835;
+      --border:         rgba(255, 255, 255, 0.13);
+      --good:           #0ca30c;
+      --good-text:      #0ca30c;
+      --critical:       #e66767;
+      --warning:        #fab219;
+      --cat-orange:     #d95926;
+      --cat-yellow:     #c98500;
+      --accent:         #58a6ff;
+      --accent-wash:    rgba(88, 166, 255, 0.18);
+      --copper:         #2fd4e8;
+      --copper-wash:    rgba(47, 212, 232, 0.16);
+      --glow:           rgba(88, 166, 255, 0.45);
+      --wash-a:         rgba(88, 166, 255, 0.34);
+      --wash-b:         rgba(47, 212, 232, 0.24);
+      --wash-c:         rgba(109, 94, 240, 0.26);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+      radial-gradient(1200px 680px at 6% -14%, var(--wash-a), transparent 60%),
+      radial-gradient(1000px 560px at 102% 2%, var(--wash-b), transparent 58%),
+      radial-gradient(820px 820px at 62% 108%, var(--wash-c), transparent 58%),
+      var(--page-plane);
+    background-attachment: fixed;
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .page {
+    /* Wide by design: the calendar lays months out side by side, and a fixed
+       1120px column left most of a widescreen empty. */
+    max-width: min(2120px, 96vw);
+    margin: 0 auto;
+    padding: 32px 20px 64px;
+  }
+  header.hd {
+    position: relative;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 22px;
+    padding-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  header.hd::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--text-primary), var(--accent) 55%, var(--copper));
+    opacity: 0.5;
+  }
+  header.hd h1 {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0;
+  }
+  header.hd p {
+    margin: 4px 0 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+
+  .views {
+    display: inline-flex;
+    overflow: hidden;
+    flex: none;
+  }
+  .views button {
+    border: none;
+    border-right: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    padding: 7px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+  }
+  .views button:last-child { border-right: none; }
+  .views button:hover { background: var(--accent-wash); }
+  .views button.active {
+    background: var(--accent-wash);
+    color: var(--text-primary);
+    box-shadow: inset 0 0 0 1px var(--accent), inset 0 0 14px var(--glow);
+  }
+
+  /* The workspace switcher is a change of context, not a change of tab, so it
+     sits in the header next to the title while the view tabs live below it. */
+  .views.ws button { font-weight: 600; letter-spacing: 0.02em; }
+  .viewbar { margin-bottom: 20px; }
+  .ws-pane { display: block; }
+
+  /* One glass recipe, so every pane on the page catches light the same way:
+     a white film, a real blur behind it, a hairline of specular along the top
+     edge and a soft drop shadow to lift it off the ground plane. */
+  .panel, .views, .dag-node {
+    position: relative;
+    background:
+      /* A gradient *inside* the film: real glass is not one flat tint, it is
+         brighter where light enters the top edge and settles toward the bottom.
+         Without this the pane reads as a translucent rectangle. */
+      linear-gradient(160deg, var(--film-hi), var(--film-lo) 62%),
+      var(--surface-1);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    border: 1px solid var(--border);
+    box-shadow:
+      /* the specular rim: bright along the top edge, a fainter line all the
+         way round, and a dark seat at the bottom so the pane has thickness */
+      inset 0 1px 0 var(--edge),
+      inset 0 0 0 1px var(--rim),
+      inset 0 -1px 0 var(--seat),
+      /* two shadows, not one: a tight contact shadow and a wide soft one --
+         a single blur reads as a drop shadow, two read as a pane floating */
+      0 1px 2px var(--shade),
+      0 22px 48px -16px var(--shade);
+  }
+
+  /* Frosted glass is not perfectly smooth -- it scatters. A single tile of
+     turbulence at very low opacity is the difference between "blurred" and
+     "frosted"; without it a heavy blur looks like a gaussian filter, which is
+     exactly what it is. Inline SVG so the page stays self-contained. */
+  .panel::after, .views::after, .dag-node::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: var(--grain);
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  table.data {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--surface-1);
+    backdrop-filter: var(--blur);
+    -webkit-backdrop-filter: var(--blur);
+    box-shadow: inset 0 1px 0 var(--edge), 0 10px 30px var(--shade);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    font-size: 13px;
+  }
+  table.data th, table.data td {
+    text-align: left;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--gridline);
+  }
+  table.data tr:hover td { background: var(--accent-wash); }
+  table.data th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  table.data td.num { font-variant-numeric: tabular-nums; }
+  table.data td.good { color: var(--good-text); }
+  table.data td.critical { color: var(--critical); }
+  table.data tr:last-child td { border-bottom: none; }
+
+  /* ---- Panels ---------------------------------------------------------
+     The page's one titled pane. Every region is built from it, so each
+     catches light the same way and an empty pane has the same frame it will
+     have once it holds something. */
+  .panel {
+    margin-bottom: 22px;
+  }
+  .panel-hd {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  .panel-hd h2 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  .panel-meta {
+    margin-top: 3px;
+    font-size: 12px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  /* What a pane is waiting on. UI chrome, not data, hence the accent family. */
+  .panel-tag {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--copper);
+    border: 1px solid var(--copper);
+    padding: 2px 8px;
+    white-space: nowrap;
+    /* Never wraps under the title: the context line gives way instead. */
+    flex: none;
+  }
+  .panel-hd > div { min-width: 0; }
+  .panel-body { padding: 14px 18px 16px; }
+  /* A table runs edge to edge inside its pane. */
+  .panel-body.flush { padding: 0; }
+  /* The table must not bring a second glass film with it: a film on a film is
+     what turns frosted into foggy. The pane owns the glass. */
+  .panel table.data {
+    background: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
+    border: none;
+  }
+  .panel table.data th, .panel table.data td { padding-left: 18px; padding-right: 18px; }
+  table.data th.num, table.data td.num { text-align: right; }
+  table.data td.sym { font-weight: 600; }
+  table.data td.muted { color: var(--text-muted); }
+  table.data th.group {
+    text-align: center;
+    border-left: 1px solid var(--gridline);
+    color: var(--text-secondary);
+  }
+
+  /* An empty pane states its size. The dashed inset is the one mark that says
+     "this space is held, nothing is drawn in it" without drawing anything. */
+  .panel-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 22px;
+    border: 1px dashed var(--border);
+    text-align: center;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-muted);
+  }
+  .panel-body.flush .panel-empty { border: none; border-top: 1px solid var(--gridline); }
+  .panel.failed { border-color: var(--critical); }
+  .panel.failed .panel-tag { color: var(--critical); border-color: var(--critical); }
+  .panel.failed .panel-empty {
+    color: var(--critical);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    word-break: break-word;
+  }
+  pre.sample {
+    margin: 0;
+    padding: 12px 16px;
+    text-align: left;
+    font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    background: var(--accent-wash);
+  }
+
+  /* Panes side by side. `auto-fit` with a floor lets the browser choose the
+     column count; `align-items: stretch` keeps a row of empty panes level. */
+  .panel-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 22px;
+    margin-bottom: 22px;
+  }
+  .panel-grid.wide { grid-template-columns: repeat(auto-fit, minmax(560px, 1fr)); }
+  .panel-grid .panel { margin-bottom: 0; display: flex; flex-direction: column; }
+  .panel-grid .panel-body { flex: 1; display: flex; flex-direction: column; }
+  .panel-grid .panel-empty { flex: 1; }
+
+  /* Parameters: the config's groups in two stacked columns, and the grid they
+     multiply out to on the right. Columns of stacked panes rather than a grid
+     of them, because the groups differ a lot in length and a grid row would
+     stretch the short ones to match the long one. */
+  .split-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(300px, 0.8fr);
+    gap: 22px;
+    align-items: start;
+  }
+  .split-layout .panel:last-child { margin-bottom: 0; }
+  @media (max-width: 1100px) { .split-layout { grid-template-columns: 1fr; } }
+
+  /* One field of a config: its name, what it means, its value. */
+  .kv {
+    display: grid;
+    grid-template-columns: 124px 1fr auto;
+    align-items: baseline;
+    gap: 12px;
+    padding: 6px 0;
+    font-size: 13px;
+    border-bottom: 1px solid var(--gridline);
+  }
+  .kv:last-of-type { border-bottom: none; }
+  .kv-key {
+    font: 600 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--text-primary);
+  }
+  .kv-what { font-size: 12px; color: var(--text-muted); }
+  .kv-val { font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+
+  .tagchip {
+    display: inline-block;
+    margin-right: 5px;
+    padding: 1px 7px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+  }
+
+  /* ---- Job graph -------------------------------------------------------
+     Nodes in dependency order with a connector between neighbours. A row, not
+     a drawn graph: the real shape is not decided, and five boxes in a line
+     claim less than arrows would. */
+  /* One row that scrolls rather than wraps: a connector is drawn back to the
+     previous node, and after a wrap the previous node is on the line above.
+     The padding is room for the panes' drop shadows, which a scroll container
+     would otherwise clip. */
+  .dag {
+    display: flex;
+    gap: 26px;
+    overflow-x: auto;
+    margin: 0 -20px;
+    padding: 2px 20px 40px;
+    margin-bottom: -28px;
+  }
+  .dag-node { flex: 1 0 210px; }
+  .dag-node {
+    padding: 13px 15px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  /* The connector reaches back across the gap to the previous node. Drawn on
+     ::before because ::after already carries the pane's grain. */
+  .dag-node + .dag-node::before {
+    content: "";
+    position: absolute;
+    left: -27px;
+    top: 50%;
+    width: 26px;
+    border-top: 1px solid var(--text-muted);
+  }
+  .dag-hd {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .dag-name { font-size: 14px; font-weight: 600; }
+  .dag-owner {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .dag-cmd {
+    font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--text-secondary);
+  }
+  .dag-what { font-size: 12px; line-height: 1.5; color: var(--text-secondary); flex: 1; }
+  .dag-state {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .region-title {
+    margin: 30px 0 16px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  /* The first region of a tab sits directly under the tab row. */
+  .ws-pane > div > .region-title:first-child { margin-top: 0; }
+  .note {
+    margin-top: 10px;
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--text-muted);
+  }
+  .note.pad { margin: 0; padding: 10px 18px 12px; border-top: 1px solid var(--gridline); }
+
+  .hidden { display: none !important; }</style>
+</head>
+<body>
+<div class="page">
+  <!--
+    Two workspaces, and the line between them is the data, not the layout:
+    ANALYSIS is the market as it is now -- what you are watching and what it is
+    doing. RESEARCH runs over a fixed dataset, which is what makes a backtest
+    repeatable. Mixing them would put a number that changes under your cursor
+    next to one that must not.
+  -->
+  <header class="hd">
+    <div>
+      <h1 id="wsTitle">Analysis</h1>
+      <p id="subtitle"></p>
+    </div>
+    <div class="views ws" id="workspaces">
+      <button data-ws="analysis" class="active">Analysis</button>
+      <button data-ws="research">Research</button>
+    </div>
+  </header>
+
+  <div class="ws-pane" id="analysisWs">
+    <div class="viewbar">
+      <div class="views" id="analysisTabs">
+        <button data-tab="portfolio" class="active">Portfolio</button>
+        <button data-tab="metrics">Metrics</button>
+        <button data-tab="pipeline">Pipeline</button>
+      </div>
+    </div>
+
+    <div id="portfolioTab"></div>
+    <div id="metricsTab" class="hidden"></div>
+    <div id="pipelineTab" class="hidden"></div>
+  </div>
+
+  <div class="ws-pane hidden" id="researchWs">
+    <!--
+      Left to right is the order the work happens in: get the data and know
+      what state it is in, say which configurations to run, read what came
+      back.
+    -->
+    <div class="viewbar">
+      <div class="views" id="researchTabs">
+        <button data-tab="data" class="active">Data</button>
+        <button data-tab="parameters">Parameters</button>
+        <button data-tab="results">Results</button>
+      </div>
+    </div>
+
+    <div id="dataTab"></div>
+    <div id="parametersTab" class="hidden"></div>
+    <div id="resultsTab" class="hidden"></div>
+  </div>
+</div>
+
+</body>
+</html>

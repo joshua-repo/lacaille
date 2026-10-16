@@ -1,0 +1,37 @@
+[project]
+name = "pictor"
+version = "0.1.0"
+description = "Rendering layer: a market/research dashboard and weekly research posts."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "typer>=0.12",
+    # Nothing imports antlia today: the option-book views that read IBKR
+    # through it went with antlia's account layer (2026-10-07). It stays a
+    # dependency because Portfolio and Metrics are waiting on `antlia.live`,
+    # and no extra is asked for until something reads a vendor through it.
+    # `develop` is antlia's default branch.
+    "antlia @ git+https://github.com/joshua-repo/antlia.git@develop",
+]
+
+[project.optional-dependencies]
+# `pictor post`: the chart is drawn by matplotlib (to SVG, text left as text)
+# and set in type by a headless browser. Optional because nothing else in
+# pictor draws with it.
+publish = ["matplotlib>=3.8"]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[project.scripts]
+pictor = "pictor.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pictor"]
