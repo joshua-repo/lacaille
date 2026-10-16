@@ -63,14 +63,14 @@ def test_live_imports_auth_and_nothing_else_from_antlia():
 def test_importing_live_pulls_in_no_vendor_sdk_and_no_engine(module):
     # The whole chain is lazy: the frankfurter fallback runs on the stdlib
     # alone, so `antlia[yfinance]` is a preference, not an install cost, and
-    # the query engine and ib_insync arrive only with the read that needs
+    # the query engine and ib_async arrive only with the read that needs
     # them. The old `antlia.fx` name is held to the same rule.
     out = run(
         "import sys;"
         "before = set(sys.modules);"
         f"import {module};"
         "added = {m.split('.')[0] for m in set(sys.modules) - before};"
-        "print(sorted(added & {'ib_insync', 'thetadata', 'yfinance', 'httpx', 'pandas',"
+        "print(sorted(added & {'ib_async', 'thetadata', 'yfinance', 'httpx', 'pandas',"
         " 'duckdb', 'pyarrow'}))"
     ).stdout
     assert out.strip() == "[]"
@@ -111,7 +111,7 @@ def test_importing_history_pulls_in_no_vendor_sdk_and_no_dataframe_library():
         "before = set(sys.modules);"
         "import antlia.history;"
         "added = {m.split('.')[0] for m in set(sys.modules) - before};"
-        "print(sorted(added & {'ib_insync', 'thetadata', 'yfinance', 'httpx', "
+        "print(sorted(added & {'ib_async', 'thetadata', 'yfinance', 'httpx', "
         "'pandas', 'polars'}))"
     ).stdout
     assert out.strip() == "[]"

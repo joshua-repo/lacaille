@@ -49,7 +49,7 @@ The message is prose, and it is meant to be shown rather than matched on.
 
 **No extras and no vendor SDK.** Like `auth`, this runs on the standard
 library, so a consumer who only wants to know whether the gateway is up is not
-made to install `ib_insync`.
+made to install `ib_async`.
 
 The host-side configuration that puts those ports there lives in
 `ops/ib-gateway/` in this repo, with its own README.

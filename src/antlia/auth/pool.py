@@ -13,7 +13,7 @@ profiles, or two accounts on one broker, never collapse into one connection.
 
 **A session whose SDK is not thread-safe is held exclusively for the duration of
 the `with` block.** Pooling and threads combine badly otherwise: several threads
-sharing one `ib_insync.IB` each drive its event loop and the result is a
+sharing one `ib_async.IB` each drive its event loop and the result is a
 deadlock, not a race -- four concurrent snapshots hung indefinitely where the
 same four in sequence took seconds. Serialising turns that into a queue. The
 lock is re-entrant, so nesting `session()` on one thread still works.
@@ -104,7 +104,7 @@ def _open(
 def session(source: str, profile: str | None = None, **overrides: Any) -> Iterator[Any]:
     """Yield a live, authenticated client for `source`.
 
-    The object yielded is the vendor's own client -- `ib_insync.IB`, an
+    The object yielded is the vendor's own client -- `ib_async.IB`, an
     `httpx.Client`, and so on. Antlia owns when it opens and closes; it does not
     wrap how you call it.
 

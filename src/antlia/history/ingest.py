@@ -188,7 +188,7 @@ def concurrency(src: HistorySource, workers: int) -> int:
         `max_workers` -- exceeding it fails a request rather than queueing it, so
         it is clamped, not negotiated. Whether the SDK may be driven from several
         threads at all comes from `auth`'s `SourceSpec.thread_safe`, because that
-        is where the fact lives: an `ib_insync.IB` driven from four threads deadlocks rather
+        is where the fact lives: an `ib_async.IB` driven from four threads deadlocks rather
         than races, and the session pool already serialises it. Clamping here lets
         a caller ask for eight without knowing which vendor is behind the adapter,
         and get one where that is the only safe answer.

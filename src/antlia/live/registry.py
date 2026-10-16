@@ -1,7 +1,7 @@
 """Source name -> live adapter, resolved lazily.
 
 Lazy for the reason every registry here is: importing `antlia.live` must not
-import `ib_insync`. Named in the call, never chosen from a chain -- a live
+import `ib_async`. Named in the call, never chosen from a chain -- a live
 answer is about one source at one moment, and silently answering from a
 different one would hand back a different moment.
 """

@@ -67,7 +67,7 @@ class Ticker:
 
 @dataclass
 class FakeIB:
-    """The few `ib_insync.IB` calls the adapter makes, answering from a fixed chain."""
+    """The few `ib_async.IB` calls the adapter makes, answering from a fixed chain."""
 
     strikes: list[float] = field(default_factory=lambda: [150.0, 190.0, 200.0, 210.0, 260.0])
     #: (expiration, strike) pairs that really exist. 260 is listed but never trades.

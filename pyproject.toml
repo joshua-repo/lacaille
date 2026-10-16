@@ -28,10 +28,11 @@ dependencies = [
 
 # Each vendor's dependency is optional (rule 8: antlia stays splittable).
 [project.optional-dependencies]
-# tzdata: ib_insync parses execution timestamps into US/Eastern, a "backward"
-# zone that a slim Linux image does not ship. Without it, reading fills
-# raises ZoneInfoNotFoundError from inside the decoder.
-ibkr = ["ib_insync>=0.9.86", "tzdata>=2024.1"]
+# ib_async: ib_insync's maintained successor (ib_insync stopped when its author
+# died in 2024). It declares tzdata itself, which ib_insync did not -- the
+# reason this extra once listed it: execution timestamps are parsed into
+# US/Eastern, a "backward" zone a slim Linux image does not ship.
+ibkr = ["ib_async>=2.1"]
 # python-dotenv is an undeclared dependency of the thetadata SDK: its
 # client.py imports it at module level without listing it. Without this the
 # extra installs and then fails at import. Needed to *warm* the cache
@@ -169,7 +170,7 @@ files = ["src", "tests"]
 
 [[tool.mypy.overrides]]
 module = [
-    "ib_insync.*", "thetadata.*", "yfinance.*", "httpx.*", "duckdb.*", "pyarrow.*",
+    "ib_async.*", "thetadata.*", "yfinance.*", "httpx.*", "duckdb.*", "pyarrow.*",
     "polars.*", "matplotlib.*",
 ]
 ignore_missing_imports = true

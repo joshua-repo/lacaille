@@ -35,7 +35,7 @@ PROFILE_PORTS = {"paper": 7497, "live": 7496}
 GATEWAY_PORTS = {"paper": 4002, "live": 4001}
 
 #: Client ids are allocated from a high base to stay clear of hand-run scripts
-#: (ib_insync examples use 1..10, pictor uses 7). Cross-process collisions are
+#: (the SDK's examples use 1..10, pictor used 7). Cross-process collisions are
 #: not solvable here -- give a second process its own base via
 #: ANTLIA_IBKR_BASE_CLIENT_ID.
 _client_ids = itertools.count()
@@ -54,7 +54,7 @@ class IBKRProvider(Provider):
             Field("rate_limit", required=False, cast=float, doc="calls/sec override"),
         ),
         extra="ibkr",
-        package="ib_insync",
+        package="ib_async",
         profiles=True,
         default_profile="paper",
         # Not client_id: an auto-allocated id must not split one gateway into
@@ -62,7 +62,7 @@ class IBKRProvider(Provider):
         identity=("host", "port", "readonly"),
         rate=45.0,
         burst=45,
-        # ib_insync drives an event loop and assumes it owns it; two
+        # ib_async drives an event loop and assumes it owns it; two
         # threads on one IB object deadlock rather than race.
         thread_safe=False,
         doc="Interactive Brokers TWS / IB Gateway socket session.",
@@ -93,8 +93,8 @@ class IBKRProvider(Provider):
         return described
 
     def connect(self, cred: Credential, limiter: Limiter) -> Any:
-        ib_insync = self.require("ib_insync")
-        ib = ib_insync.IB()
+        sdk = self.require("ib_async")
+        ib = sdk.IB()
         host, port = cred.get("host", "127.0.0.1"), self.port_for(cred)
         try:
             ib.connect(

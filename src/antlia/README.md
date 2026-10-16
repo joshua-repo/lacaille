@@ -45,7 +45,7 @@ with auth.session("trading212") as t212:
 What it owns: where credentials come from, when connections open and close,
 whether two callers share one, and how fast a source may be hit. What it does
 not own: how you call the vendor's client — `session()` yields the vendor's own
-object (`ib_insync.IB`, `httpx.Client`, …), not a wrapper.
+object (`ib_async.IB`, `httpx.Client`, …), not a wrapper.
 
 ### Sources
 
@@ -59,7 +59,7 @@ object (`ib_insync.IB`, `httpx.Client`, …), not a wrapper.
 
 Each vendor SDK is an optional extra, imported the first time its source is
 used. One adapter's dependency is never everyone's install cost, and a missing
-one produces `MissingExtra: source 'ibkr' needs the 'ib_insync' package: pip
+one produces `MissingExtra: source 'ibkr' needs the 'ib_async' package: pip
 install 'antlia[ibkr]'` rather than an ImportError from three frames down.
 
 ### Configuration
@@ -815,7 +815,7 @@ Three things to know before wiring it in:
   needs no vendor extra at all — a machine that only runs backtests never has to
   install the SDK.
 - **`gateway` needs no extra either**, deliberately: it answers "is the gateway
-  up, and how do I look at it" without `ib_insync` installed, which is the state
+  up, and how do I look at it" without `ib_async` installed, which is the state
   you are most likely to be in when you need to ask.
 
 ## Development

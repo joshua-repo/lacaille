@@ -4,10 +4,19 @@ Read-only by construction: the session comes from `auth.session("ibkr")`,
 which connects `readonly=True`, and the only requests made are contract
 lookups and market-data snapshots.
 
-The raw frame is one row per contract, built from ib_insync's objects under
-**IBKR's own attribute names** -- `lastTradeDateOrContractMonth`, `bidSize`,
-`modelGreeks.delta` -- with IBKR's own sentinels left in. The projection is
-where `"20261016"` becomes a date and `-1.0` becomes NULL.
+The raw frame is one row per contract under **IBKR's own attribute names**
+-- `lastTradeDateOrContractMonth`, `bidSize`, `modelGreeks.delta` -- with
+IBKR's own sentinels left in. The projection is where `"20261016"` becomes a
+date and `-1.0` becomes NULL.
+
+## The seam: no SDK in this file
+
+Everything that talks to the gateway goes through `IBKRClient`, a Protocol of
+five calls, and contracts are opaque handles here. `ibasync.py` implements it
+on `ib_async`; a client of the user's own, on IBKR's `ibapi`, would implement
+the same five calls and change nothing in this file. What such a client must
+keep is `RAW`: every recording in `raw/ibkr/` is in those column names and
+the projection reads them, so they are a contract, not an SDK detail.
 
 ## Facts measured against the user's gateway (2026-08-29)
 
@@ -23,15 +32,16 @@ where `"20261016"` becomes a date and `-1.0` becomes NULL.
   whether it appears in regular hours is unconfirmed. Either way it reads as
   NULL.
 
-Not yet run against a live gateway: the request sequence below follows
-ib_insync's documented API and is covered by a fake in the tests.
+Not yet run against a live gateway: the request sequence follows the SDK's
+documented API and is covered by a fake in the tests.
 """
 
 from __future__ import annotations
 
 import datetime as dt
 from collections.abc import Sequence
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, Protocol
 from zoneinfo import ZoneInfo
 
 from antlia import auth
@@ -49,7 +59,10 @@ MAX_CONTRACTS = 400
 #: The default strike band around the underlying: +/- 15%.
 BAND = 0.15
 
-_CONTRACT = (
+#: The raw columns, in three parts: the contract's fields, the quote's, and the
+#: model greeks' (flattened as `modelGreeks.<name>`). A client fills each row
+#: under exactly these names, None where it has nothing.
+CONTRACT_FIELDS = (
     "conId",
     "symbol",
     "lastTradeDateOrContractMonth",
@@ -61,8 +74,53 @@ _CONTRACT = (
     "localSymbol",
     "tradingClass",
 )
-_TICKER = ("time", "bid", "bidSize", "ask", "askSize", "last", "lastSize", "volume", "close")
-_GREEKS = ("impliedVol", "delta", "gamma", "vega", "theta", "undPrice", "optPrice", "pvDividend")
+TICKER_FIELDS = ("time", "bid", "bidSize", "ask", "askSize", "last", "lastSize", "volume", "close")
+GREEK_FIELDS = (
+    "impliedVol",
+    "delta",
+    "gamma",
+    "vega",
+    "theta",
+    "undPrice",
+    "optPrice",
+    "pvDividend",
+)
+
+RAW = (*CONTRACT_FIELDS, *TICKER_FIELDS, *(f"modelGreeks.{name}" for name in GREEK_FIELDS))
+
+
+@dataclass(frozen=True, slots=True)
+class ChainParams:
+    """One exchange's listing of a chain: what `reqSecDefOptParams` answers."""
+
+    exchange: str
+    expirations: tuple[str, ...]
+    strikes: tuple[float, ...]
+    multiplier: str
+    trading_class: str
+
+
+#: One option to look up: (expiration as IBKR's YYYYMMDD, strike, right).
+Leg = tuple[str, float, str]
+
+
+class IBKRClient(Protocol):
+    """Everything this source asks of a gateway. Contracts are opaque here."""
+
+    def stock(self, symbol: str) -> Any:
+        """The qualified US stock. Raises LookupError if IBKR does not know it."""
+
+    def chains(self, stock: Any) -> list[ChainParams]:
+        """Every exchange's listing of the stock's option chain."""
+
+    def options(self, symbol: str, chain: ChainParams, legs: Sequence[Leg]) -> list[Any]:
+        """The legs that really exist, qualified. Combinations that do not are dropped."""
+
+    def delayed_price(self, stock: Any) -> float | None:
+        """A delayed price, enough to centre a strike band on. None if there is none."""
+
+    def snapshot(self, contracts: Sequence[Any]) -> list[dict[str, Any]]:
+        """One realtime snapshot per contract, as rows under `RAW`."""
 
 
 def _double(column: str) -> str:
@@ -112,26 +170,27 @@ class IBKRLive(LiveSource):
     name = "ibkr"
     auth_source = "ibkr"
     extra = "ibkr"
-    package = "ib_insync"
+    package = "ib_async"
     datasets = frozenset({"option_quote"})
+
+    def client(self, session: Any) -> IBKRClient:
+        """The one place a session becomes an `IBKRClient`. Swap the SDK here."""
+        from antlia.live.sources.ibasync import IbAsyncClient
+
+        return IbAsyncClient(session, self.require("ib_async"))
 
     def fetch(self, dataset: str, symbol: str, **options: Any) -> Any:
         if dataset != "option_quote":
             raise ValueError(f"{self.name} cannot serve {dataset!r}")
         from antlia.live.engine import pa
 
-        ib_insync = self.require("ib_insync")
         asked = dt.datetime.now(dt.UTC)
         today = asked.astimezone(NY).date()
 
-        with auth.session(self.auth_source, options.get("profile")) as ib:
-            underlying = ib_insync.Stock(symbol, "SMART", "USD")
-            if not ib.qualifyContracts(underlying):
-                raise LookupError(f"ibkr does not recognise {symbol!r} as a US stock")
-            params = ib.reqSecDefOptParams(
-                underlying.symbol, "", underlying.secType, underlying.conId
-            )
-            chain = next((p for p in params if p.exchange == "SMART"), None)
+        with auth.session(self.auth_source, options.get("profile")) as session:
+            client = self.client(session)
+            underlying = client.stock(symbol)
+            chain = next((c for c in client.chains(underlying) if c.exchange == "SMART"), None)
             if chain is None:
                 raise LookupError(f"ibkr lists no SMART option chain for {symbol!r}")
 
@@ -142,62 +201,38 @@ class IBKRLive(LiveSource):
                 options.get("min_dte"),
                 options.get("max_dte"),
             )
-            band = options.get("strikes") or self._band(ib, underlying)
+            band = options.get("strikes") or self._band(client, underlying, symbol)
             strikes = [k for k in sorted(chain.strikes) if band[0] <= k <= band[1]]
             rights = [r for r in "CP" if r in options.get("rights", "CP").upper()]
 
-            contracts = [
-                ib_insync.Option(
-                    symbol,
-                    expiry,
-                    strike,
-                    right,
-                    "SMART",
-                    multiplier=chain.multiplier,
-                    currency="USD",
-                    tradingClass=chain.tradingClass,
-                )
-                for expiry in expirations
-                for strike in strikes
-                for right in rights
-            ]
-            if len(contracts) > MAX_CONTRACTS:
+            legs = [(e, k, r) for e in expirations for k in strikes for r in rights]
+            if len(legs) > MAX_CONTRACTS:
                 raise ValueError(
-                    f"{len(contracts)} contracts is a scan, not a slice (limit {MAX_CONTRACTS}); "
+                    f"{len(legs)} contracts is a scan, not a slice (limit {MAX_CONTRACTS}); "
                     "narrow expirations, the DTE band or strikes=(lo, hi)"
                 )
-            if not contracts:
+            if not legs:
                 return None
 
             # The union of strikes is wider than any one expiration's: a
             # combination that does not exist comes back unqualified.
-            listed = [c for c in ib.qualifyContracts(*contracts) if getattr(c, "conId", 0)]
-            ib.reqMarketDataType(1)
-            tickers: list[Any] = []
+            listed = client.options(symbol, chain, legs)
+            rows: list[dict[str, Any]] = []
             for i in range(0, len(listed), BATCH):
-                tickers.extend(ib.reqTickers(*listed[i : i + BATCH]))
+                rows.extend(client.snapshot(listed[i : i + BATCH]))
 
-        if not tickers:
+        if not rows:
             return None
-        rows = [_row(t) for t in tickers]
         frame = pa.Table.from_pylist(rows)
         stamp = pa.array([asked] * frame.num_rows, type=pa.timestamp("us", tz="UTC"))
         return frame.append_column("snapshot_at", stamp)
 
-    def _band(self, ib: Any, underlying: Any) -> tuple[float, float]:
+    def _band(self, client: IBKRClient, underlying: Any, symbol: str) -> tuple[float, float]:
         """+/- BAND around a delayed underlying price. Delayed is enough to pick strikes."""
-        ib.reqMarketDataType(3)
-        try:
-            [ticker] = ib.reqTickers(underlying)
-        finally:
-            ib.reqMarketDataType(1)
-        price = ticker.marketPrice()
-        if not (price == price and price > 0):  # NaN or unset
-            price = ticker.close
-        if not (price == price and price > 0):
+        price = client.delayed_price(underlying)
+        if price is None:
             raise LookupError(
-                f"no price for {underlying.symbol} to centre a strike band on; "
-                "pass strikes=(lo, hi)"
+                f"no price for {symbol} to centre a strike band on; pass strikes=(lo, hi)"
             )
         return price * (1 - BAND), price * (1 + BAND)
 
@@ -223,15 +258,3 @@ class IBKRLive(LiveSource):
             "theta": _signed("modelGreeks.theta"),
             "underlying_price": _price("modelGreeks.undPrice"),
         }
-
-
-def _row(ticker: Any) -> dict[str, Any]:
-    """One ticker as IBKR named its fields. Nothing renamed, nothing repaired."""
-    contract = ticker.contract
-    row: dict[str, Any] = {name: getattr(contract, name, None) for name in _CONTRACT}
-    row.update({name: getattr(ticker, name, None) for name in _TICKER})
-    greeks = getattr(ticker, "modelGreeks", None)
-    for name in _GREEKS:
-        value = getattr(greeks, name, None) if greeks is not None else None
-        row[f"modelGreeks.{name}"] = None if value is None else float(value)
-    return row
