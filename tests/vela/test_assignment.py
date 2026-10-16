@@ -6,7 +6,7 @@ import datetime as dt
 
 import pytest
 
-from tests.conftest import Scripted, chain, market
+from tests.vela.conftest import Scripted, chain, market
 from vela.book.position import Leg, Position
 from vela.engine.loop import BacktestEngine
 from vela.execution.assignment import NoAssignment, ParityAssignment

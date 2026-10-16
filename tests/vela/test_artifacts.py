@@ -8,7 +8,7 @@ import json
 
 import pytest
 
-from tests.conftest import Scripted, chain, market
+from tests.vela.conftest import Scripted, chain, market
 from vela.engine.loop import BacktestEngine
 from vela.execution.fill import FillModel
 from vela.instrument import Contract
@@ -323,7 +323,6 @@ def test_runs_land_in_a_fixed_root_not_the_cwd(monkeypatch, tmp_path) -> None:
 def test_data_failures_are_told_apart() -> None:
     """What a driver does next differs for each, so each has its own code."""
     from antlia.history.errors import IngestFailed, NotCovered, NotEntitled
-
     from vela.data.guards import CoverageIncomplete
     from vela.data.market import data_failure
 
@@ -340,7 +339,6 @@ def test_data_failures_are_told_apart() -> None:
 )
 def test_each_failure_has_its_own_exit_code(monkeypatch, raised, code) -> None:
     from antlia.history.errors import IngestFailed, NotCovered, NotEntitled
-
     from vela.data.guards import CorporateActionSuspected
     from vela.run import config
     from vela.run.cli import main

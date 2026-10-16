@@ -124,7 +124,7 @@ def test_a_history_read_of_a_covered_window_never_authenticates():
     out = run(
         "import datetime as dt, tempfile, antlia.auth.pool as pool;"
         "from antlia import history;"
-        "from tests.history.fakes import FakeHistory;"
+        "from tests.antlia.history.fakes import FakeHistory;"
         "src = FakeHistory();"
         "history.register('fake', src, first=True);"
         "root = tempfile.mkdtemp();"

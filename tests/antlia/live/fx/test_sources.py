@@ -20,7 +20,7 @@ from antlia import auth
 from antlia.auth.errors import ConnectionFailed
 from antlia.live.fx.sources.frankfurter import USER_AGENT, FrankfurterRates
 from antlia.live.fx.sources.yfinance import YFinanceRates
-from tests.live.fx.fakes import BrokenYFProvider, FakeYFHandle, FakeYFProvider
+from tests.antlia.live.fx.fakes import BrokenYFProvider, FakeYFHandle, FakeYFProvider
 
 pd = pytest.importorskip("pandas")
 

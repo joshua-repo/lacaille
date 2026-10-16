@@ -7,7 +7,7 @@ import pytest
 from antlia import gateway
 from antlia.auth.errors import ConnectionFailed
 from antlia.gateway.errors import ControlUnavailable
-from tests.gateway.fakes import FakeIBC, dead_port
+from tests.antlia.gateway.fakes import FakeIBC, dead_port
 
 
 def test_restart_sends_restart_and_returns_the_reply_verbatim(monkeypatch):

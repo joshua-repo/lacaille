@@ -7,7 +7,7 @@ import math
 
 import pytest
 
-from tests.conftest import chain, market
+from tests.vela.conftest import chain, market
 from vela.book.book import BookView
 from vela.data.market import MarketView
 from vela.engine.context import Context

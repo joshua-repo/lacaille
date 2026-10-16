@@ -8,7 +8,7 @@ import math
 import numpy as np
 import pytest
 
-from tests.conftest import chain
+from tests.vela.conftest import chain
 from vela.pricing.black_scholes import BlackScholes
 from vela.pricing.enrich import YEAR_DAYS, Enricher
 from vela.pricing.series import atm_iv

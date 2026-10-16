@@ -7,7 +7,7 @@ import os
 
 import pytest
 
-from tests.conftest import cached_window
+from tests.vela.conftest import cached_window
 from vela.data.market import DataVersion, MarketView
 from vela.run.cli import _as_of
 

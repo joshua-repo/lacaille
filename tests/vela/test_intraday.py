@@ -7,7 +7,7 @@ import datetime as dt
 import numpy as np
 import pytest
 
-from tests.conftest import Scripted, bar, chain, market
+from tests.vela.conftest import Scripted, bar, chain, market
 from vela.book.position import Leg, Position
 from vela.data.snapshot import ChainSnapshot
 from vela.engine.intraday import eligible, leg_ivs, stress_chain

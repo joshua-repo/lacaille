@@ -8,7 +8,7 @@ import math
 import numpy as np
 import pytest
 
-from tests.conftest import bar, chain
+from tests.vela.conftest import bar, chain
 from vela.data.snapshot import ChainSnapshot, Quote
 from vela.instrument import Contract
 

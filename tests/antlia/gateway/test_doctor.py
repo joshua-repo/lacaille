@@ -6,7 +6,7 @@ import json
 
 from antlia.gateway.__main__ import main
 from antlia.gateway.sources.ibkr import VNC_PASSWORD_ENV
-from tests.gateway.fakes import FakeIBC, dead_port
+from tests.antlia.gateway.fakes import FakeIBC, dead_port
 
 
 def test_it_lists_what_is_configured(monkeypatch, capsys):

@@ -6,7 +6,7 @@ import pytest
 
 from antlia import gateway
 from antlia.auth.errors import UnknownSource
-from tests.gateway.fakes import FakeIBC, dead_port
+from tests.antlia.gateway.fakes import FakeIBC, dead_port
 
 
 def test_a_source_with_no_gateway_describes_as_none():

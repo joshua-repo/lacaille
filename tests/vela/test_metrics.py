@@ -128,7 +128,7 @@ def test_a_curve_needs_two_points() -> None:
 def test_cash_alone_has_no_excess_and_no_sharpe() -> None:
     """The benchmark accrues exactly as the engine credits: an account that
     never trades matches it to rounding, and rounding is not a Sharpe ratio."""
-    from tests.conftest import Scripted, market
+    from tests.vela.conftest import Scripted, market
     from vela.engine.loop import BacktestEngine
 
     path = {dt.date(2026, 1, 5) + dt.timedelta(days=i): 100.0 for i in range(0, 30, 3)}

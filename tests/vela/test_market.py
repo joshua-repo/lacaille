@@ -7,7 +7,7 @@ import os
 
 import pytest
 
-from tests.conftest import cached_window
+from tests.vela.conftest import cached_window
 from vela.data.market import FutureData, MarketView
 
 # A read the store already covers costs no vendor requests and never

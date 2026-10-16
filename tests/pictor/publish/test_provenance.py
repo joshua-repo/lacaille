@@ -7,7 +7,7 @@ import pytest
 from pictor.publish.provenance import Refused, select
 from pictor.publish.question import load_question
 from pictor.publish.runs import discover, trading_pnl
-from tests.publish.conftest import T0, make_run, register
+from tests.pictor.publish.conftest import T0, make_run, register
 
 H = dt.timedelta(hours=1)
 
@@ -39,7 +39,7 @@ def test_the_earliest_run_is_used_and_the_rest_are_counted(posts, tmp_path):
 
 
 def test_an_uncommitted_question_is_refused(posts, tmp_path):
-    from tests.publish.conftest import QUESTION
+    from tests.pictor.publish.conftest import QUESTION
 
     (posts / "2026-w01-test" / "question.toml").write_text(QUESTION)
     with pytest.raises(Refused, match="A1: .* not committed"):
@@ -64,7 +64,7 @@ def test_rewriting_a_question_after_its_runs_is_refused(posts, tmp_path):
     path = register(posts)
     both(tmp_path / "runs", T0 + H)
     path.write_text(path.read_text().replace("The gate helped", "The gate clearly helped"))
-    from tests.publish.conftest import git
+    from tests.pictor.publish.conftest import git
     git(posts, "commit", "-qam", "reword after seeing it", when=T0 + 2 * H)
     with pytest.raises(Refused, match="predate its registration"):
         pick(posts, tmp_path / "runs")

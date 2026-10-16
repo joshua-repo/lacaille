@@ -85,7 +85,7 @@ def _local_env() -> dict[str, str]:
     Deliberately not python-dotenv: this reads three optional strings for the
     test suite and is not worth a dependency.
     """
-    path = Path(__file__).resolve().parent.parent / ".env"
+    path = Path(__file__).resolve().parents[2] / ".env"
     if not path.exists():
         return {}
     found = {}

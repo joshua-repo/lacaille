@@ -3,7 +3,7 @@ import pytest
 from pictor.publish.claim import evaluate
 from pictor.publish.metrics import dollars, percent, read
 from pictor.publish.question import load_question
-from tests.publish.conftest import QID, QUESTION
+from tests.pictor.publish.conftest import QID, QUESTION
 
 
 @pytest.fixture

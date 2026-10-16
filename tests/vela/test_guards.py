@@ -6,7 +6,7 @@ import datetime as dt
 
 import pytest
 
-from tests.conftest import bar, chain
+from tests.vela.conftest import bar, chain
 from vela.data.guards import (
     CorporateActionSuspected,
     check_corporate_actions,

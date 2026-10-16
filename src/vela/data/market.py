@@ -336,7 +336,6 @@ def data_failure(exc: BaseException) -> str | None:
     surface as the crash it is rather than as advice to warm a cache.
     """
     from antlia.history.errors import IngestFailed, NotCovered, NotEntitled
-
     from vela.data.guards import CoverageIncomplete
 
     if isinstance(exc, NotCovered | CoverageIncomplete):

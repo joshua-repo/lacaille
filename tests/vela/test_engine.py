@@ -16,7 +16,7 @@ import random
 
 import pytest
 
-from tests.conftest import Scripted, chain, market
+from tests.vela.conftest import Scripted, chain, market
 from vela.engine.loop import BacktestEngine
 from vela.execution.fill import FillModel
 from vela.instrument import Contract

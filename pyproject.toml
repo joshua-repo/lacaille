@@ -1,0 +1,176 @@
+[project]
+name = "lacaille"
+version = "0.1.0"
+description = "Options research: market data (antlia), backtesting (vela) and rendering (pictor)."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    # --- antlia's `history` store. DuckDB reads the Parquet tier directly (no
+    # server, no load step) and pyarrow is what a read hands back. Both are the
+    # layer's own machinery, not a consumer's dataframe preference -- pandas
+    # and polars stay out, and `frame="pandas"` imports one only when a caller
+    # asks for it.
+    "duckdb>=1.0",
+    "pyarrow>=16",
+    # pytz is duckdb's undeclared dependency, the same trap as python-dotenv
+    # below: converting a TIMESTAMPTZ to a Python object imports it, and
+    # `ingested_at` is one -- so `ingests()`, every `as_of=` read, and vela's
+    # provenance (which version of the data a run read) need it. It used to
+    # arrive transitively via pandas; pandas 3.0 dropped it, which is what
+    # made a latent gap into a failure.
+    "pytz>=2024.1",
+    # --- vela: pricing and the engine.
+    "numpy>=2",
+    "scipy>=1.14",
+    # --- pictor: the CLI.
+    "typer>=0.12",
+]
+
+# Each vendor's dependency is optional (rule 8: antlia stays splittable).
+[project.optional-dependencies]
+# tzdata: ib_insync parses execution timestamps into US/Eastern, a "backward"
+# zone that a slim Linux image does not ship. Without it, reading fills
+# raises ZoneInfoNotFoundError from inside the decoder.
+ibkr = ["ib_insync>=0.9.86", "tzdata>=2024.1"]
+# python-dotenv is an undeclared dependency of the thetadata SDK: its
+# client.py imports it at module level without listing it. Without this the
+# extra installs and then fails at import. Needed to *warm* the cache
+# (`antlia-history fill`), not to read it.
+thetadata = ["thetadata>=1.0", "python-dotenv>=1.0"]
+trading212 = ["httpx>=0.27"]
+yfinance = ["yfinance>=0.2"]
+# `pictor post`: the chart is drawn by matplotlib (to SVG, text left as text)
+# and set in type by a headless browser. Optional because nothing else in
+# pictor draws with it -- and vela must never import it (a contract below).
+publish = ["matplotlib>=3.8"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "import-linter>=2.1",
+    "scipy-stubs>=1.14",
+    # pandas and polars are here and nowhere else: they are a *consumer's*
+    # preference, never antlia's, so `frame="pandas"` imports one only when a
+    # caller asks. The tests that prove that conversion works still need both
+    # installed, and without them a plain `uv sync` leaves a suite that fails
+    # for a reason that has nothing to do with antlia.
+    "pandas>=2.2",
+    "polars>=1.0",
+]
+
+# One console script per package. antlia's is ingest/admin plumbing --
+# warming a cache is a batch job you run from a shell or a cron entry, not
+# from inside a backtest (`python -m antlia.history.cli` is the equivalent
+# when the entry point is not on PATH). A backtest is something you run from
+# a shell or a launch configuration.
+[project.scripts]
+antlia-history = "antlia.history.cli:main"
+vela = "vela.run.cli:main"
+pictor = "pictor.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/antlia", "src/vela", "src/pictor"]
+
+# --- The package boundaries. The three packages share one environment, so
+# these contracts are the only thing enforcing them (`uv run lint-imports`).
+# A broken contract means the import is in the wrong package; the fix is to
+# move the code, not to widen the contract.
+[tool.importlinter]
+root_packages = ["antlia", "vela", "pictor"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "antlia imports neither consumer"
+type = "forbidden"
+source_modules = ["antlia"]
+forbidden_modules = ["vela", "pictor"]
+
+[[tool.importlinter.contracts]]
+name = "vela and pictor never import each other (the runs folder is the interface)"
+type = "independence"
+modules = ["vela", "pictor"]
+
+[[tool.importlinter.contracts]]
+name = "vela takes no rendering dependency"
+type = "forbidden"
+source_modules = ["vela"]
+forbidden_modules = ["matplotlib", "quantstats"]
+
+[[tool.importlinter.contracts]]
+name = "nothing in vela imports its run layer"
+type = "forbidden"
+source_modules = [
+    "vela.book", "vela.data", "vela.engine", "vela.execution", "vela.instrument",
+    "vela.metrics", "vela.orders", "vela.pricing", "vela.risk", "vela.strategy",
+]
+forbidden_modules = ["vela.run"]
+
+[[tool.importlinter.contracts]]
+name = "nothing in pictor imports its CLI"
+type = "forbidden"
+source_modules = ["pictor.charts", "pictor.publish", "pictor.watchlist"]
+forbidden_modules = ["pictor.cli"]
+
+[[tool.importlinter.contracts]]
+name = "nothing in antlia imports its CLI"
+type = "forbidden"
+source_modules = [
+    "antlia.auth", "antlia.fx", "antlia.gateway", "antlia.live", "antlia.schema",
+    "antlia.history.base", "antlia.history.engine", "antlia.history.errors",
+    "antlia.history.ingest", "antlia.history.integrity", "antlia.history.ledger",
+    "antlia.history.listing", "antlia.history.reads", "antlia.history.registry",
+    "antlia.history.sources", "antlia.history.store", "antlia.history.types",
+    "antlia.history.writes",
+]
+forbidden_modules = ["antlia.history.cli"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.format]
+# Debt, not policy: pictor was never formatted before the merge (2026-10-16).
+exclude = ["src/pictor/**", "tests/pictor/**"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+# Debt, not policy: pictor was never linted before the merge (2026-10-16).
+[tool.ruff.lint.per-file-ignores]
+"src/pictor/**" = ["E501"]
+"tests/pictor/**" = ["E501"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src", "tests"]
+
+[[tool.mypy.overrides]]
+module = [
+    "ib_insync.*", "thetadata.*", "yfinance.*", "httpx.*", "duckdb.*", "pyarrow.*",
+    "polars.*", "matplotlib.*",
+]
+ignore_missing_imports = true
+
+# Debt, not policy: pictor was never type-checked before the merge
+# (2026-10-16: 12 errors). Bringing it under strict is its own change.
+[[tool.mypy.overrides]]
+module = ["pictor.*", "tests.pictor.*"]
+ignore_errors = true
+
+# Strict is for the code that ships. Annotating every test function proves
+# nothing here and makes the tests worse to read.
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false
+disallow_untyped_calls = false
+disallow_incomplete_defs = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,7 +1,7 @@
 import pytest
 
 from pictor.publish.question import QuestionError, load_question
-from tests.publish.conftest import QID, QUESTION
+from tests.pictor.publish.conftest import QID, QUESTION
 
 
 def write(tmp_path, text, folder=QID):
