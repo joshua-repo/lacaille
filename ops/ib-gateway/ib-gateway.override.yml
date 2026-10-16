@@ -76,7 +76,7 @@ services:
       # check-ibc-template.sh (next to this file) can diff the two.
       IBC_INI_TMPL: /ibc/config.ini.tmpl
     volumes:
-      - /home/neroo/repo/antlia/ops/ib-gateway/ibc-config.ini.tmpl:/ibc/config.ini.tmpl:ro
+      - /home/neroo/repo/lacaille/ops/ib-gateway/ibc-config.ini.tmpl:/ibc/config.ini.tmpl:ro
       - ib-gateway-settings:/home/ibgateway/settings
     ports:
       - "127.0.0.1:7462:7462"

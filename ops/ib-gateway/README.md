@@ -29,7 +29,7 @@ directory ever moves:
 2. The `volumes:` entry in the override names `ibc-config.ini.tmpl`.
 
 ```
-COMPOSE_FILE=docker-compose.yml:/home/neroo/repo/antlia/ops/ib-gateway/ib-gateway.override.yml
+COMPOSE_FILE=docker-compose.yml:/home/neroo/repo/lacaille/ops/ib-gateway/ib-gateway.override.yml
 ```
 
 Relative paths in an override resolve against the **project** directory
