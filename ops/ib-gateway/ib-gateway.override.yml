@@ -21,6 +21,13 @@
 services:
   ib-gateway:
     environment:
+      # Live or paper, chosen in ~/ib-gateway/.env so switching is one line
+      # there rather than an edit to the gateway project's own compose file.
+      # A scalar, so this replaces that file's `live`. Switching recreates the
+      # container: a full login. `both` is deliberately not supported -- the
+      # image moves the settings path outside the volume below in that mode
+      # (antlia's CLAUDE.md has the rest).
+      TRADING_MODE: ${TRADING_MODE:-live}
       # IBC's command server: the control channel that replaces clicking in
       # VNC. `RESTART` re-runs IBC's whole automated login, which is what makes
       # `antlia.gateway.restart` a button rather than a chore. It is IBKR's
@@ -80,6 +87,10 @@ services:
       - ib-gateway-settings:/home/ibgateway/settings
     ports:
       - "127.0.0.1:7462:7462"
+      # The paper API (the gateway's 4002, behind the image's socat on 4004).
+      # Appended to the base file's live 4001:4003; whichever mode is not
+      # running answers ConnectionRefused.
+      - "127.0.0.1:4002:4004"
 
   # The gateway's screen on a web page. VNC is RFB over raw TCP and browser JS
   # cannot open a TCP socket, so something has to translate TCP to WebSocket:

@@ -88,6 +88,34 @@ python -m antlia.gateway              # what antlia thinks is on the other side
 command server is not reachable, which is also what a gateway without this
 override looks like -- that is a normal answer, not a fault.
 
+## Live or paper
+
+One gateway, one mode, chosen in `~/ib-gateway/.env`:
+
+```
+TRADING_MODE=paper        # or live, the default when unset
+TWS_USERID=...            # the paper account's own username and password
+TWS_PASSWORD=...
+```
+
+then `docker compose up -d` -- a recreate, so a full login. The API is on
+`127.0.0.1:4002` in paper mode and `127.0.0.1:4001` in live mode; the other
+port refuses connections. Point `antlia.auth` at the paper one with
+
+```toml
+[ibkr.paper]
+port = 4002
+```
+
+and check with `python -m antlia.auth ibkr -p paper --verify`, which names the
+account (`DU...` for paper).
+
+The image also offers `TRADING_MODE=both`. It is not supported here: in that
+mode the image moves each instance's settings to `settings_live` /
+`settings_paper`, outside the volume this override mounts, so the soft-restart
+token is lost on every recreate; and both IBC instances would render the same
+template and contend for command port 7462.
+
 ## The named volume must be chowned once
 
 Docker creates a named volume owned by **root**; the image runs as
