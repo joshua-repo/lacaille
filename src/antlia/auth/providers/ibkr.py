@@ -6,10 +6,12 @@ and the client id. Those are the two things that actually go wrong: a stale
 connection, and two parts of a program picking the same client id and silently
 evicting each other.
 
-**Connections are read-only by default.** `readonly=True` makes the gateway
-reject order placement on this socket, which turns antlia's "no execution path
-here" rule into something the broker enforces rather than something a reviewer
-has to notice. Setting it false is possible and is a deliberate act.
+**Connections are `readonly=True` by default -- a statement, not a block.**
+The flag tells the SDK the API is read-only, so it skips the order sync at
+connect; it does not make the gateway reject an order sent on this socket.
+Only the gateway's own Read-Only API setting does that, and this deployment
+runs with it off so that puppis can trade paper. antlia places no order
+because no code here makes one. Keep the default: it says what antlia means.
 """
 
 from __future__ import annotations

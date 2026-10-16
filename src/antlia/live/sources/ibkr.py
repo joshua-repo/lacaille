@@ -1,8 +1,9 @@
 """IBKR as a live source: a slice of an option chain, quoted now.
 
-Read-only by construction: the session comes from `auth.session("ibkr")`,
-which connects `readonly=True`, and the only requests made are contract
-lookups and market-data snapshots.
+Read-only by what it asks, not by a broker block: the session comes from
+`auth.session("ibkr")` (`readonly=True`, which skips the order sync and
+enforces nothing), and the only requests made are contract lookups and
+market-data snapshots.
 
 The raw frame is one row per contract under **IBKR's own attribute names**
 -- `lastTradeDateOrContractMonth`, `bidSize`, `modelGreeks.delta` -- with

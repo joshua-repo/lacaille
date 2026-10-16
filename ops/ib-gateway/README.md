@@ -20,6 +20,78 @@ consumer of `antlia.gateway` would have had to reach into pictor for it.
 credentials stay in `~/ib-gateway/.env`, outside any repository, where they
 cannot be committed by accident.
 
+## How the pieces fit
+
+IB Gateway is a Java desktop application. It has no headless mode and no
+login API, so it runs in a Docker container with a virtual screen, and IBC
+(inside the same container) types the username and password into its login
+dialog. Everything else talks to it over ports published on `127.0.0.1`.
+
+```
+ ~/ib-gateway/                       the gateway's compose project (outside any repo)
+ ├── docker-compose.yml              base: image, TRADING_MODE default, 4001 + 5900
+ └── .env  ───────────────┐          SECRETS: TWS_USERID, TWS_PASSWORD,
+                          │                   VNC_SERVER_PASSWORD
+                          │          SETTINGS: TRADING_MODE, COMPOSE_FILE ──┐
+                          │                                                 │ names
+ lacaille/ops/ib-gateway/ │                                                 ▼
+ ├── ib-gateway.override.yml ◄──────────────────── layered on top of the base file
+ └── ibc-config.ini.tmpl ─────┐ mounted read-only
+                              │
+          `docker compose up -d`  (interpolates .env into both files)
+                          │   │
+ ┌─ container ib-gateway ─┼───┼──────────────────────────────────────────────┐
+ │                        ▼   ▼                                              │
+ │   environment ──► IBC renders config.ini from the template                │
+ │                   (IbLoginId, IbPassword, TradingMode, ReadOnlyApi, ...)  │
+ │                        │                                                  │
+ │                        │ types them into the login dialog                 │
+ │                        ▼                                                  │
+ │   Xvfb (virtual screen) ── IB Gateway (Java) ◄─── 2FA push ─── your phone │
+ │        │                   API 4001 live / 4002 paper (container-local)   │
+ │        │                        │                                         │
+ │     x11vnc :5900       socat :4003 / :4004       IBC command server :7462 │
+ │                                                                           │
+ │   /home/ibgateway/settings ◄─ volume ib-gateway_ib-gateway-settings       │
+ │   (jts.ini, the autorestart token that spares a 2FA on a soft restart)    │
+ └────────┼───────────────────────────┼──────────────────────┼───────────────┘
+          │ 5900                      │ 4003, 4004 (socat)   │ 7462
+ ┌─ container novnc ┐                 │                      │
+ │ websockify :8080 │                 │                      │
+ └────────┼─────────┘                 │                      │
+ host ════╪═══════ 127.0.0.1 ═════════╪══════════════════════╪═══════════════
+          │ 6080                      │ 4001 live, 4002 paper│ 7462
+          ▼                           ▼                      ▼
+   browser: the gateway's      antlia.auth / antlia.live   antlia.gateway
+   screen (noVNC)              (client ids 900+);          (status, RESTART)
+                               puppis, its own socket
+                                         ▲
+                                         │ host + port only, no secret
+                               ~/.antlia/credentials.toml
+                               [ibkr.paper] port = 4002, [ibkr.live] port = 4001
+                               (also holds ThetaData / Trading212 / FRED keys)
+```
+
+Where each secret lives, and who reads it:
+
+| secret | lives in | read by |
+|---|---|---|
+| IBKR username and password | `~/ib-gateway/.env` only | compose → container env → IBC → the login dialog. Nothing in lacaille ever sees it. |
+| second factor | your phone (IB Key) | the IBKR login, on every full (cold) login |
+| VNC password | `~/ib-gateway/.env` | the container's x11vnc; `antlia.gateway` only if it is exported in your shell (it prefills the noVNC link and never prints it) |
+| session state | the `ib-gateway-settings` Docker volume | IB Gateway itself; it is what lets the nightly soft restart skip a 2FA |
+| ThetaData / Trading212 / FRED keys | `~/.antlia/credentials.toml` (mode 600) | `antlia.auth` |
+
+`~/.antlia/credentials.toml` holds **no IBKR secret**: for IBKR it only says
+where the gateway listens. The gateway is already logged in; a client just
+connects to the port.
+
+**Read-only is the gateway's setting, not the client's.** `readonly=True` on
+an API client only tells the client library the API is read-only (it skips
+syncing orders at connect); it does not stop that client from sending one.
+The block that counts is `READ_ONLY_API` (IBC's `ReadOnlyApi`), and it is
+`"no"` here because puppis places paper orders through this gateway.
+
 ## The two absolute paths
 
 Both are absolute on purpose, and both have to be updated together if this

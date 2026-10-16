@@ -104,9 +104,11 @@ burn through client ids. Two callers agreeing on the identity share one
 connection; two profiles, or two accounts at one broker, never collapse into
 one. A dead handle is detected and replaced.
 
-IBKR connects **read-only by default**, so the gateway itself rejects order
-placement on antlia's socket. Antlia has no execution path, and this makes that
-a broker-enforced fact rather than something a reviewer has to notice.
+IBKR connects with `readonly=True` by default. That flag only tells the client
+library the API is read-only -- it skips syncing orders at connect -- and does
+**not** make the gateway refuse an order; only the gateway's own Read-Only API
+setting does that. Antlia places no order because it has no code that does, not
+because the broker would stop it. See `ops/ib-gateway/README.md`.
 
 ### Rate limits
 
