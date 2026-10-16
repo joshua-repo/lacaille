@@ -1,10 +1,10 @@
-"""`python -m antlia.gateway` -- and the one thing it must never print."""
+"""`antlia gateway` -- and the one thing it must never print."""
 
 from __future__ import annotations
 
 import json
 
-from antlia.gateway.__main__ import main
+from antlia.gateway.cli import main
 from antlia.gateway.sources.ibkr import VNC_PASSWORD_ENV
 from tests.antlia.gateway.fakes import FakeIBC, dead_port
 

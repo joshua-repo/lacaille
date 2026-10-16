@@ -1,10 +1,10 @@
-"""`python -m antlia.gateway` -- what antlia thinks is on the other side.
+"""`antlia gateway` -- what antlia thinks is on the other side.
 
-    python -m antlia.gateway                     # every source, every gateway
-    python -m antlia.gateway -s ibkr -p live
-    python -m antlia.gateway --restart           # send RESTART, print the reply
-    python -m antlia.gateway --command RECONNECTDATA
-    python -m antlia.gateway --json
+    antlia gateway                               # every source, every gateway
+    antlia gateway -s ibkr -p live
+    antlia gateway --restart                     # send RESTART, print the reply
+    antlia gateway --command RECONNECTDATA
+    antlia gateway --json
 
 Admin plumbing, like the other doctors, and the same three-level distinction
 applies: that a gateway is *configured* says nothing about whether it
@@ -51,7 +51,7 @@ def render(info: GatewayInfo) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="python -m antlia.gateway", description=__doc__)
+    parser = argparse.ArgumentParser(prog="antlia gateway", description=__doc__)
     parser.add_argument("-s", "--source", default=None, help="one source instead of all of them")
     parser.add_argument("-p", "--profile", default=None, help="which profile to describe")
     parser.add_argument("--restart", action="store_true", help="send RESTART (needs --source)")
@@ -95,7 +95,3 @@ def main(argv: list[str] | None = None) -> int:
         print("\n\n".join(render(info) for info in described))
 
     return 1 if failures else 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())

@@ -1,4 +1,4 @@
-"""`antlia-history`: the commands a metered key gets debugged with."""
+"""`antlia history`: the commands a metered key gets debugged with."""
 
 from __future__ import annotations
 

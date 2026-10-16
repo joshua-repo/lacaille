@@ -105,5 +105,5 @@ def planned(
         symbol,
         [],
         source or registry.default("expirations"),
-        fix=f"antlia-history fill option_eod {symbol} --start ... --end ...",
+        fix=f"antlia history fill option_eod {symbol} --start ... --end ...",
     )

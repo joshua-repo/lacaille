@@ -224,9 +224,9 @@ def test_cli_refuses_an_uncached_symbol_and_says_what_to_run(capsys) -> None:
     code = main(["NOSUCHTICKER", "--start", "2026-01-01", "--end", "2026-02-01"])
     assert code == 3  # missing: warm the cache
     err = capsys.readouterr().err
-    assert "antlia-history fill" in err
+    assert "antlia history fill" in err
     assert "NOSUCHTICKER" in err
-    assert "one antlia-history command at a time" in err.lower()
+    assert "one antlia history command at a time" in err.lower()
 
 
 def test_cli_defaults_to_offline() -> None:

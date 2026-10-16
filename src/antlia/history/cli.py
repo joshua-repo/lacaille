@@ -1,22 +1,22 @@
-"""`antlia-history` -- the doctor, the planner, and the ingest command.
+"""`antlia history` -- the doctor, the planner, and the ingest command.
 
-    antlia-history                             # what is registered, what is held
-    antlia-history verify                      # one live round-trip per source
-    antlia-history check [--repair]            # is the store telling the truth?
-    antlia-history plan option_eod AAPL --start 2026-06-01 --end 2026-08-28
-    antlia-history fill option_eod AAPL --start 2026-06-01 --end 2026-08-28 --workers 2
-    antlia-history coverage option_eod AAPL --start 2026-06-01 --end 2026-08-28
-    antlia-history read equity_eod AAPL --start 2026-08-17 --end 2026-08-28
-    antlia-history ingests option_eod AAPL     # what --as-of accepts
+    antlia history                             # what is registered, what is held
+    antlia history verify                      # one live round-trip per source
+    antlia history check [--repair]            # is the store telling the truth?
+    antlia history plan option_eod AAPL --start 2026-06-01 --end 2026-08-28
+    antlia history fill option_eod AAPL --start 2026-06-01 --end 2026-08-28 --workers 2
+    antlia history coverage option_eod AAPL --start 2026-06-01 --end 2026-08-28
+    antlia history read equity_eod AAPL --start 2026-08-17 --end 2026-08-28
+    antlia history ingests option_eod AAPL     # what --as-of accepts
 
 `plan` is the one to run first on a metered key: it prints how many vendor
 requests a `fill` would make, and costs none of them.
 
-**There is no `__main__.py`.** `antlia-history` is a console script pointing at
-`main` below, so the command lives in one place instead of being split between
-a module that holds it and a three-line shim that exists only to satisfy
+**There is no `__main__.py`.** This is one subcommand of the `antlia` console
+script (`antlia/cli.py`), so the command lives in one place instead of being
+split between a module that holds it and a shim that exists only to satisfy
 `python -m`. Where the entry point is not on PATH -- a source checkout with no
-install -- `python -m antlia.history.cli` runs the same thing.
+install -- `python -m antlia.cli history` runs the same thing.
 
 The commands are a table, and their flags are reusable groups, because the
 alternative -- a handler plus its own block of `add_argument` calls per command
@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-import sys
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
@@ -295,7 +294,7 @@ COMMANDS: tuple[Command, ...] = (
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="antlia-history", description=__doc__)
+    parser = argparse.ArgumentParser(prog="antlia history", description=__doc__)
     parser.add_argument("--store", default=None, help="store root; default $ANTLIA_STORE")
     parser.add_argument("--source", default=None, help="which adapter; default the chain's first")
     parser.add_argument("-v", "--verbose", action="store_true")
@@ -315,8 +314,3 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     finally:
         auth.close_all()
-
-
-if __name__ == "__main__":
-    # `python -m antlia.history.cli`, for a checkout with no console script.
-    sys.exit(main())

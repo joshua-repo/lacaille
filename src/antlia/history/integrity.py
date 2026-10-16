@@ -135,7 +135,7 @@ def _listings(base: Path, source: str | None) -> list[Problem]:
                     f"{name}:option_eod {symbol}: sessions held through {newest}, "
                     f"but the expiration listing was {when}",
                     None,
-                    f"refresh it: antlia-history fill option_eod {symbol} --start ... --end ...",
+                    f"refresh it: antlia history fill option_eod {symbol} --start ... --end ...",
                 )
             )
     return out
@@ -180,7 +180,7 @@ def _counts(base: Path, source: str | None) -> list[Problem]:
                         f"{name}:{table_name} {symbol}: store {held} rows, ledger {claimed} "
                         f"({direction})",
                         None,
-                        f"re-fetch: antlia-history fill {table_name} {symbol} "
+                        f"re-fetch: antlia history fill {table_name} {symbol} "
                         f"--start ... --end ... --refresh",
                     )
                 )

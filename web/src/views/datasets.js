@@ -14,11 +14,11 @@ import { el } from "../dom.js";
  * when these are wired, this page triggers and displays; it does not decide.
  */
 const JOBS = [
-  {name: "plan", owner: "antlia", command: "antlia-history plan",
+  {name: "plan", owner: "antlia", command: "antlia history plan",
    what: "What a fill would ask the vendor for, without asking."},
-  {name: "fill", owner: "antlia", command: "antlia-history fill",
+  {name: "fill", owner: "antlia", command: "antlia history fill",
    what: "Fetch what is missing and append it to the store. Spends metered requests."},
-  {name: "check", owner: "antlia", command: "antlia-history check",
+  {name: "check", owner: "antlia", command: "antlia history check",
    what: "Unreadable files, leaked writes, ledger mismatches."},
   {name: "readiness", owner: "vela", command: "vela check",
    what: "Is this window runnable, and if not, why. Writes readiness.json.", pending: true},

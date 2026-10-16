@@ -76,7 +76,7 @@ spec default
 
 Environment wins so a shell or a CI job can override a habit without editing
 anything; the file exists because profiles turn into an unreadable pile of
-environment variables fast. `python -m antlia.auth --init` writes a commented
+environment variables fast. `antlia auth --init` writes a commented
 starter file with mode 600.
 
 Deliberately not a keyring: on WSL2 there is no Secret Service daemon, and
@@ -143,11 +143,11 @@ channel is down"; yfinance pulls one daily bar (Yahoo answers an unavailable
 endpoint with an empty frame, so emptiness is the failure).
 
 ```bash
-python -m antlia.auth                  # what resolves, which SDKs are installed
-python -m antlia.auth --connect        # also open a session
-python -m antlia.auth ibkr --verify    # ...and prove it works
-python -m antlia.auth ibkr -p live     # one profile only
-python -m antlia.auth --init           # write a starter credentials.toml
+antlia auth                            # what resolves, which SDKs are installed
+antlia auth --connect                  # also open a session
+antlia auth ibkr --verify              # ...and prove it works
+antlia auth ibkr -p live               # one profile only
+antlia auth --init                     # write a starter credentials.toml
 ```
 
 ### Debugging a source
@@ -211,9 +211,9 @@ pivot and every conversion crosses through it, so adding a currency is a
 one-line change.
 
 ```bash
-python -m antlia.live.fx                        # the table, cache or live
-python -m antlia.live.fx --verify               # every source, live, in turn
-python -m antlia.live.fx --convert 83289.64 GBP USD
+antlia fx                                       # the table, cache or live
+antlia fx --verify                              # every source, live, in turn
+antlia fx --convert 83289.64 GBP USD
 ```
 
 ### Two sources, tried in order
@@ -339,19 +339,20 @@ Reads return a **`pyarrow.Table`**; `frame="pandas"` or `frame="polars"`
 converts, and imports that library only when you ask for it.
 
 ```bash
-antlia-history                                    # what is held
-antlia-history verify                             # one live round-trip
-antlia-history plan option_eod AAPL --start 2026-06-01 --end 2026-08-28 --max-dte 45
-antlia-history fill option_eod AAPL --start 2026-06-01 --end 2026-08-28 --max-dte 45
-antlia-history check --repair                     # is the store intact?
+antlia history                                    # what is held
+antlia history verify                             # one live round-trip
+antlia history plan option_eod AAPL --start 2026-06-01 --end 2026-08-28 --max-dte 45
+antlia history fill option_eod AAPL --start 2026-06-01 --end 2026-08-28 --max-dte 45
+antlia history check --repair                     # is the store intact?
 ```
 
 `plan` prints how many vendor requests a `fill` would make and costs none of
 them. On a metered plan, run it first.
 
-`antlia-history` is a console script installed with the package -- warming a
+`antlia` is the one console script installed with the package, and
+`history` one of its areas (`antlia -h` lists them) -- warming a
 cache is a batch job you run from a shell or a cron entry, not from inside a
-backtest. From a source checkout with no install, `python -m antlia.history.cli`
+backtest. From a source checkout with no install, `python -m antlia.cli history`
 runs the same command.
 
 ### Cache-first, and it is enforced
@@ -469,7 +470,7 @@ it spends a metered budget faster and that is your call.
 ### Integrity, and the line it does not cross
 
 ```bash
-antlia-history check [--repair]
+antlia history check [--repair]
 ```
 
 `check` asks whether the **store is telling the truth about itself** — never
@@ -545,7 +546,7 @@ shape the planner:
 
 - **A rolling history horizon.** A FREE plan reached back to **2023-07-10** when
   measured on 2026-08-30. Crossing it fails the whole request, so the plan
-  clamps first; `antlia-history horizon` re-measures it in about
+  clamps first; `antlia history horizon` re-measures it in about
   eleven requests when the window has moved.
 - **365 days per request, inclusive.** 366 is an `INVALID_ARGUMENT`.
 - **A non-trading day raises rather than returning an empty frame.** Treating
@@ -625,7 +626,7 @@ universe).
 ### Looking at what is cached
 
 ```bash
-antlia-history                    # store root, files and symbols per table
+antlia history                    # store root, files and symbols per table
 python scripts/history_probe.py option_eod AAPL --start 2026-08-10 --end 2026-08-28
 ```
 
@@ -667,8 +668,8 @@ gateway.restart("ibkr", "live")  # -> IBC's own words, verbatim
 ```
 
 ```bash
-python -m antlia.gateway              # every gateway, and whether it answers
-python -m antlia.gateway -s ibkr -p live --restart
+antlia gateway                        # every gateway, and whether it answers
+antlia gateway -s ibkr -p live --restart
 ```
 
 `None` is the whole protocol for "this source has no gateway", so no consumer

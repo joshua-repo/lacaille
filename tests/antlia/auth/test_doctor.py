@@ -1,4 +1,4 @@
-"""`python -m antlia.auth` -- the thing that gets run when something is wrong.
+"""`antlia auth` -- the thing that gets run when something is wrong.
 
 Its output is the product here, so the tests assert on what it prints.
 """
@@ -10,7 +10,7 @@ import stat
 import pytest
 
 from antlia import auth
-from antlia.auth import __main__ as doctor
+from antlia.auth import cli as doctor
 from antlia.auth.base import Provider
 from antlia.auth.errors import ConnectionFailed
 from antlia.auth.spec import Field, SourceSpec

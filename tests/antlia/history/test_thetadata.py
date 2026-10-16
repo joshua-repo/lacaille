@@ -3,7 +3,7 @@
 The vendor facts these pin were measured against a live key on 2026-08-30 and
 are recorded in the adapter's docstring. What is tested here is that the code
 acts on them -- a network test would prove the vendor still behaves that way,
-which is what `antlia-history verify` is for.
+which is what `antlia history verify` is for.
 """
 
 from __future__ import annotations

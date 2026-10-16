@@ -403,7 +403,7 @@ def _verify_coverage(
         if not found.complete:
             raise CoverageIncomplete(
                 f"antlia cannot vouch for this window:\n  {found}\n"
-                "Warm the cache (antlia-history fill ...), narrow the window, or "
+                "Warm the cache (antlia history fill ...), narrow the window, or "
                 "pass verify=False to run on it anyway."
             )
 

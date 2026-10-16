@@ -59,7 +59,7 @@ uv run vela --help
 
 Runs are **offline by default**: a backtest never spends metered vendor
 requests as a side effect. A symbol whose data is not cached stops and prints
-the `antlia-history` commands that would warm it.
+the `antlia history` commands that would warm it.
 
 Each run writes `trades.csv`, `equity.csv` and a `summary.json` carrying the
 full configuration, the data version and the result. The summary is the layer

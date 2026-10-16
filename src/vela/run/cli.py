@@ -8,7 +8,7 @@ vela imports it. A runner is a consumer of the engine.
 
 **It refuses rather than guesses.** A symbol whose data is not cached does not
 silently fetch an hour of vendor requests inside a backtest -- it stops and
-prints the exact `antlia-history` commands to run first. Warming a cache is a
+prints the exact `antlia history` commands to run first. Warming a cache is a
 batch job, and one that costs money on a metered plan.
 
 Two defaults are opinionated, for reasons the project has measured:
@@ -450,17 +450,17 @@ def _explain_missing_data(args: argparse.Namespace, exc: Exception) -> None:
     print(f"cannot run: {exc}\n", file=sys.stderr)
     print("Warm the cache first. `plan` costs no vendor requests -- run it:", file=sys.stderr)
     print(
-        f"\n  uv run antlia-history plan option_eod {args.symbol} "
+        f"\n  uv run antlia history plan option_eod {args.symbol} "
         f"--start {args.start} --end {args.end} --max-dte {args.max_dte}\n"
-        f"  uv run antlia-history fill equity_eod {args.symbol} "
+        f"  uv run antlia history fill equity_eod {args.symbol} "
         f"--start {args.start} --end {args.end}\n"
-        f"  uv run antlia-history fill option_eod {args.symbol} "
+        f"  uv run antlia history fill option_eod {args.symbol} "
         f"--start {args.start} --end {args.end} --max-dte {args.max_dte} --workers 2\n",
         file=sys.stderr,
     )
     print(
         "Budget roughly 75 seconds per request -- a year of one symbol's chain is\n"
-        "about an hour. Run ONE antlia-history command at a time: a second one\n"
+        "about an hour. Run ONE antlia history command at a time: a second one\n"
         "invalidates the first's ThetaData session and kills it.\n"
         "\n"
         "If the fill stalls at the same request count twice, a scope is permanently\n"

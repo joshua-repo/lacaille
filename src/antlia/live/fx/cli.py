@@ -1,12 +1,12 @@
-"""`python -m antlia.live.fx` -- show the rate table, and prove each source answers.
+"""`antlia fx` -- show the rate table, and prove each source answers.
 
-    python -m antlia.live.fx                          # the table, cache or live
-    python -m antlia.live.fx -c USD,GBP,JPY,HKD       # a different currency set
-    python -m antlia.live.fx --fresh                  # ignore the cache
-    python -m antlia.live.fx --verify                 # every source, live, in turn
-    python -m antlia.live.fx --convert 83289.64 GBP USD
-    python -m antlia.live.fx --json
-    python -m antlia.live.fx --clear-cache
+    antlia fx                                         # the table, cache or live
+    antlia fx -c USD,GBP,JPY,HKD                      # a different currency set
+    antlia fx --fresh                                 # ignore the cache
+    antlia fx --verify                                # every source, live, in turn
+    antlia fx --convert 83289.64 GBP USD
+    antlia fx --json
+    antlia fx --clear-cache
 
 Admin plumbing, like `antlia.auth`'s doctor. The same
 three-level distinction applies: that a source is *registered* says nothing
@@ -70,7 +70,7 @@ def verify(names: list[str], currencies: tuple[str, ...]) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="python -m antlia.live.fx", description=__doc__)
+    parser = argparse.ArgumentParser(prog="antlia fx", description=__doc__)
     parser.add_argument(
         "-c",
         "--currencies",
@@ -137,7 +137,3 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         print(f"\n{amount:,.2f} {frm} = {converted:,.2f} {to}")
     return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())

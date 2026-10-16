@@ -81,7 +81,7 @@ docker compose stop          # both
 Then, from anywhere:
 
 ```bash
-python -m antlia.gateway              # what antlia thinks is on the other side
+antlia gateway                        # what antlia thinks is on the other side
 ```
 
 `control: yes` is the override having taken effect. `control: no` means IBC's
@@ -107,7 +107,7 @@ port refuses connections. Point `antlia.auth` at the paper one with
 port = 4002
 ```
 
-and check with `python -m antlia.auth ibkr -p paper --verify`, which names the
+and check with `antlia auth ibkr -p paper --verify`, which names the
 account (`DU...` for paper).
 
 The image also offers `TRADING_MODE=both`. It is not supported here: in that

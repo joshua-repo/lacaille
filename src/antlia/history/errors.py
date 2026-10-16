@@ -39,7 +39,7 @@ class NotCovered(HistoryError):
     ) -> None:
         gaps = ", ".join(str(w) for w in missing) or "the whole window"
         if fix is None:
-            fix = f"antlia-history fill {table} {symbol}"
+            fix = f"antlia history fill {table} {symbol}"
             if missing:
                 # Only offer a runnable command when there are real dates to
                 # put in it. A hint with two empty flags is worse than no hint.

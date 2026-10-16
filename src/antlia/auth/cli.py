@@ -1,14 +1,14 @@
-"""`python -m antlia.auth` -- report what is configured, without connecting.
+"""`antlia auth` -- report what is configured, without connecting.
 
 Admin plumbing, not a product surface. It exists because the alternative to a
 doctor command is discovering a typo'd environment variable in the middle of a
 backtest, three layers down, as a vendor error.
 
-    python -m antlia.auth                      # what resolves, what is installed
-    python -m antlia.auth --connect            # also open a real session
-    python -m antlia.auth ibkr --verify        # ...and prove it works
-    python -m antlia.auth ibkr -p live         # one profile only
-    python -m antlia.auth --init               # write a commented credentials.toml
+    antlia auth                                # what resolves, what is installed
+    antlia auth --connect                      # also open a real session
+    antlia auth ibkr --verify                  # ...and prove it works
+    antlia auth ibkr -p live                   # one profile only
+    antlia auth --init                         # write a commented credentials.toml
 
 Three levels, and they are not the same claim. *Resolves* means the settings
 were found. *Connects* means an object was constructed -- which for an HTTP
@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
-import sys
 
 from antlia.auth import credentials, pool, registry
 from antlia.auth.errors import AuthError
@@ -145,7 +144,7 @@ def report(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="python -m antlia.auth", description=__doc__)
+    parser = argparse.ArgumentParser(prog="antlia auth", description=__doc__)
     parser.add_argument("sources", nargs="*", help="sources to check (default: all)")
     parser.add_argument(
         "--connect",
@@ -170,7 +169,3 @@ def main(argv: list[str] | None = None) -> int:
     if failures:
         print(f"\n{failures} problem(s)")
     return 1 if failures else 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
