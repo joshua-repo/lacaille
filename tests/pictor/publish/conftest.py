@@ -20,6 +20,7 @@ id = "{QID}"
 question = "Does the gate help?"
 
 [run]
+as_of = 2026-01-01T00:00:00Z
 symbol = "XYZ"
 start = "2025-01-02"
 end = "2025-12-31"
@@ -43,7 +44,8 @@ title_if_inconclusive = "Too few trades to tell"
 
 #: vela's parsed arguments with its defaults, as `invocation.args` records them.
 ARGS = {
-    "symbol": "XYZ", "start": "2025-01-02", "end": "2025-12-31", "as_of": None, "max_dte": 45,
+    "symbol": "XYZ", "start": "2025-01-02", "end": "2025-12-31", "as_of": "2026-01-01T00:00:00+00:00",
+    "max_dte": 45,
     "right": "P", "moneyness": 0.95, "width": 5.0, "entry_dte": [30, 45], "take_profit": 0.5,
     "stop_loss": 0.5, "exit_dte": 7, "max_concurrent": 3, "spacing": 7, "cash": 100000.0,
     "risk": 1000.0, "iv_rank": None, "iv_lookback": 120, "iv_warmup": 20, "haircut": 0.5,
@@ -80,14 +82,17 @@ def register(repo: Path, text: str = QUESTION, when: dt.datetime = T0) -> Path:
 
 def make_run(root: Path, name: str, *, run_at: dt.datetime, n: int = 20, expectancy: float = 10.0,
              dirty: bool = False, sha: str = "abc123", schema: int | None = None,
-             interest: bool = True, **args) -> Path:
+             interest: bool = True, pinned: bool = True, **args) -> Path:
     out = root / "xyz" / name
     out.mkdir(parents=True)
     summary = {
         "run_at": run_at.isoformat(),
         "git": {"sha": sha, "dirty": dirty},
         "data": {"source": "antlia", "symbol": "XYZ", "start": "2025-01-02", "end": "2025-12-31",
-                 "sessions": 3, "underlying_move": 0.12},
+                 "sessions": 3, "underlying_move": 0.12,
+                 "version": {"tables": {"option_eod": "2025-12-31T20:00:00+00:00"},
+                             "as_of": "2026-01-01T00:00:00+00:00", "pinned": pinned,
+                             "coverage_verified": False}},
         "engine": {"initial_cash": 100000.0, "cash_rate": 0.04 if interest else None, "fill": {"type": "FillModel", "haircut": 0.5,
                                                       "commission": 0.65}},
         "strategy": {"name": "s", "params": {}},

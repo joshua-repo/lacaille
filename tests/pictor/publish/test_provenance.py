@@ -79,7 +79,8 @@ def test_a_baseline_that_differs_in_more_than_the_question_is_refused(posts, tmp
 
 
 @pytest.mark.parametrize("kw, rule", [({"dirty": True}, "uncommitted changes"),
-                                      ({"fetch": True}, "allowed to fetch")])
+                                      ({"fetch": True}, "allowed to fetch"),
+                                      ({"pinned": False}, "unpinned data")])
 def test_an_irreproducible_run_is_refused(posts, tmp_path, kw, rule):
     register(posts)
     both(tmp_path / "runs", T0 + H, **kw)
@@ -134,3 +135,17 @@ def test_an_unknown_summary_schema_is_refused(tmp_path):
     make_run(tmp_path, "r", run_at=T0, schema=7)
     with pytest.raises(RunError, match="schema 7"):
         discover(tmp_path)
+
+
+def test_as_of_matches_as_an_instant_not_as_text(posts, tmp_path):
+    """vela records the command line ("...Z"); TOML parses a datetime."""
+    register(posts)
+    both(tmp_path / "runs", T0 + H, as_of="2026-01-01T00:00:00Z")
+    assert pick(posts, tmp_path / "runs").treatment.run.args["as_of"].endswith("Z")
+
+
+def test_a_different_as_of_is_a_different_run(posts, tmp_path):
+    register(posts)
+    both(tmp_path / "runs", T0 + H, as_of="2026-02-01T00:00:00+00:00")
+    with pytest.raises(Refused, match=r"differs in \['as_of'\]"):
+        pick(posts, tmp_path / "runs")

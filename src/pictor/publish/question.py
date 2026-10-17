@@ -12,6 +12,7 @@ result.
     kicker = "optional, the small caps line above the title"
 
     [run]          # vela arguments both arms share, by vela's own names
+    as_of = 2026-10-01T00:00:00Z   # required: the store as it stood then
     symbol = "XXXX"
     start = "YYYY-MM-DD"
     end = "YYYY-MM-DD"
@@ -34,6 +35,10 @@ result.
 
 TOML has no null, so `"none"` stands for vela's "not given" (`None` in its
 recorded arguments).
+
+`as_of` is required (house rule A6). antlia appends a vendor restatement rather
+than editing, so an unpinned read means "whatever was newest" -- the same
+question run a month later can read different rows. Pinned, it cannot.
 """
 
 from __future__ import annotations
@@ -130,6 +135,11 @@ def load_question(path: Path) -> Question:
         raise QuestionError(f"id {qid!r} does not match its directory {path.parent.name!r}")
 
     run = {k: _value(v) for k, v in (raw.get("run") or {}).items()}
+    if run.get("as_of") is None:
+        raise QuestionError(
+            "[run] needs `as_of` (e.g. as_of = 2026-10-01T00:00:00Z): an unpinned read can see "
+            "different data next month, so its result cannot be reproduced (A6)"
+        )
     treatment = _arm(raw.get("treatment"), "treatment")
     baseline = _arm(raw.get("baseline"), "baseline")
     if set(treatment.args) != set(baseline.args):

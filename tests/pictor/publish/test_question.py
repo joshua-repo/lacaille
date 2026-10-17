@@ -47,3 +47,9 @@ def test_every_outcome_needs_its_title_written_in_advance(tmp_path):
     text = QUESTION.replace('title_if_inconclusive = "Too few trades to tell"\n', "")
     with pytest.raises(QuestionError, match="title_if_inconclusive"):
         load_question(write(tmp_path, text))
+
+
+def test_a_question_must_pin_its_data(tmp_path):
+    text = QUESTION.replace("as_of = 2026-01-01T00:00:00Z\n", "")
+    with pytest.raises(QuestionError, match="as_of"):
+        load_question(write(tmp_path, text))

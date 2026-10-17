@@ -87,8 +87,9 @@ def compose(q: Question, outcome: Outcome, t: dict[str, Any], b: dict[str, Any])
             f"Idle cash earns {cash_rate * 100:.1f}% a year in the backtest; the chart and the "
             "per-trade figures exclude it."
         )
-    if args.get("as_of") is None:
-        limits.append("Data read at its newest, not pinned to an ingest.")
+    version = data.get("version") or {}
+    if version.get("as_of"):
+        limits.append(f"Data as stored on {version['as_of'][:10]}.")
     if outcome.verdict == "inconclusive":
         limits.append(f"Inconclusive: {outcome.reason}.")
     return Text(body=body, limitations=" ".join(limits), words=len(body.split()))
@@ -163,7 +164,7 @@ def build_post(question_path: Path, runs_root: Path, brand_root: Path | None = N
     def run_record(choice) -> dict[str, Any]:
         r = choice.run
         return {"run": str(r.path), "run_at": r.run_at.isoformat(), "matched": choice.matched,
-                "vela": r.summary["git"], "as_of": r.args.get("as_of")}
+                "vela": r.summary["git"], "data_version": r.summary["data"].get("version")}
 
     lock = {
         "question": {"id": q.id, "path": str(q.path), "sha256": q.sha256,

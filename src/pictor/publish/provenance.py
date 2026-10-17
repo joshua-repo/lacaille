@@ -15,7 +15,9 @@ numbers came from does not get made.
   question says they differ in. Anything else and the comparison is not the one
   that was registered.
 - **A6, reproducible.** Both runs come from a clean, identical vela checkout,
-  and neither was allowed to fetch.
+  neither was allowed to fetch, and both recorded a *pinned* data version
+  (`data.version`, from `--as-of`) -- the same code and arguments can otherwise
+  read different rows after a vendor restatement.
 """
 
 from __future__ import annotations
@@ -87,8 +89,27 @@ def _norm(value: Any) -> Any:
     return value
 
 
+def _instant(value: Any) -> Any:
+    """`as_of` as a point in time. vela records the command-line string
+    ("...Z" or "...+00:00"); TOML gives a datetime. Same instant, same value."""
+    if isinstance(value, str):
+        try:
+            value = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return value
+    if isinstance(value, dt.datetime) and value.tzinfo is None:
+        value = value.replace(tzinfo=dt.UTC)
+    return value.astimezone(dt.UTC).isoformat() if isinstance(value, dt.datetime) else value
+
+
+def _same(key: str, a: Any, b: Any) -> bool:
+    if key == "as_of":
+        return _instant(a) == _instant(b)
+    return _norm(a) == _norm(b)
+
+
 def _differs(args: dict[str, Any], wanted: dict[str, Any]) -> list[str]:
-    return [k for k, v in wanted.items() if _norm(args.get(k, KeyError)) != _norm(v)]
+    return [k for k, v in wanted.items() if k not in args or not _same(k, args[k], v)]
 
 
 def _choose(question: Question, arm: Arm, name: str, runs: list[Run], since: dt.datetime) -> Choice:
@@ -114,7 +135,7 @@ def _choose(question: Question, arm: Arm, name: str, runs: list[Run], since: dt.
 
 def _check_pair(question: Question, t: Run, b: Run) -> None:
     keys = (set(t.args) | set(b.args)) - IGNORED
-    differ = {k for k in keys if _norm(t.args.get(k)) != _norm(b.args.get(k))}
+    differ = {k for k in keys if not _same(k, t.args.get(k), b.args.get(k))}
     if differ != question.differs_in:
         raise Refused(
             f"A4: the runs differ in {sorted(differ)}, the question registers a difference in "
@@ -123,6 +144,11 @@ def _check_pair(question: Question, t: Run, b: Run) -> None:
     for run in (t, b):
         if run.args.get("fetch"):
             raise Refused(f"A6: {run.name} was allowed to fetch data; a published run must be offline.")
+        version = (run.summary.get("data") or {}).get("version")
+        if not version:
+            raise Refused(f"A6: {run.name} does not record which data it read (no data.version).")
+        if not version.get("pinned"):
+            raise Refused(f"A6: {run.name} read unpinned data; run it with the question's --as-of.")
         git = run.summary.get("git") or {}
         if git.get("dirty") is not False:
             raise Refused(

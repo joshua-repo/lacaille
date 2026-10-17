@@ -140,6 +140,25 @@ def test_the_regime_is_recorded_beside_the_result(run) -> None:
     assert record["data"]["underlying_move"] == pytest.approx(0.0)
 
 
+def test_the_data_version_is_recorded(run) -> None:
+    """Which ingest was read: the same code and arguments can read different
+    rows after a vendor restatement, and only this says which."""
+    import dataclasses
+
+    from vela.data.market import DataVersion
+
+    result, mv, engine, strategy = run
+    stamp = dt.datetime(2026, 9, 1, 12, tzinfo=dt.UTC)
+    pinned = dataclasses.replace(mv, version=DataVersion(tables={"option_eod": stamp}, as_of=stamp))
+    record = strict(json.dumps(summary(result, market=pinned, engine=engine, strategy=strategy)))
+    assert record["data"]["version"] == {
+        "tables": {"option_eod": stamp.isoformat()},
+        "as_of": stamp.isoformat(),
+        "pinned": True,
+        "coverage_verified": False,
+    }
+
+
 def test_a_run_records_how_it_was_asked_for(run, tmp_path) -> None:
     """Every parsed argument, defaults included: `--rate` or `--as-of` change a
     result without appearing on any object the rest of the summary describes."""

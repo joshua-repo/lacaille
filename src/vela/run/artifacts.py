@@ -31,7 +31,7 @@ from dataclasses import asdict, fields, is_dataclass
 from pathlib import Path
 from typing import Any
 
-from vela.data.market import MarketView
+from vela.data.market import DataVersion, MarketView
 from vela.engine.loop import BacktestEngine
 from vela.engine.results import Result
 from vela.metrics.curve import curve_stats
@@ -138,6 +138,10 @@ def summary(
             # The regime in one number: first to last close over the window.
             # A result has to be read beside it -- selling puts through a
             # rising market says little about selling puts.
+            # Which ingest of the store this run read. antlia appends a vendor
+            # restatement rather than editing, so the same code and arguments
+            # can read different rows later; this says which ones it read.
+            "version": _version(market.version),
             "underlying_move": (
                 result.equity[-1].spot / result.equity[0].spot - 1
                 if len(result.equity) > 1 and result.equity[0].spot
@@ -168,6 +172,15 @@ def summary(
         record["invocation"] = invocation
     cleaned: dict[str, Any] = _clean(record)
     return cleaned
+
+
+def _version(version: DataVersion) -> dict[str, Any]:
+    return {
+        "tables": {k: v.isoformat() if v else None for k, v in version.tables.items()},
+        "as_of": version.as_of.isoformat() if version.as_of else None,
+        "pinned": version.pinned,
+        "coverage_verified": version.coverage_verified,
+    }
 
 
 def _write_trades(result: Result, path: Path) -> None:
