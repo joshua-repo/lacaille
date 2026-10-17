@@ -123,5 +123,6 @@ def test_the_template_it_writes_parses_and_resolves(capsys):
     capsys.readouterr()
     assert doctor.main(["ibkr"]) == 0
     out = capsys.readouterr().out
-    assert "'port': 7497" in out
-    assert "'port': 7496" in out
+    assert "'port': 4002" in out
+    # Live is commented out in the starter file: off until deliberately on.
+    assert "ibkr:live" not in out

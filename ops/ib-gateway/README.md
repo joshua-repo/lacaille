@@ -101,17 +101,31 @@ Grep it: `docker compose config | grep -E "TRADING_MODE|published"`.
 
 ## Live or paper
 
-`TRADING_MODE=live` in `.env`, then `up -d`, then log in to the live account.
-Paper is 4002 and live is 4001; the mode not running refuses connections.
-`~/.antlia/credentials.toml` points antlia at each:
+Paper is the default and the live account is **off**. Reaching it takes
+deliberate steps in more than one place, so that it cannot happen by
+accident:
 
-```toml
-[ibkr.paper]
-port = 4002
+1. In `~/.antlia/credentials.toml`, add the live port. antlia has no default
+   for it; without this line every `profile="live"` call fails with "the live
+   profile is switched off".
 
-[ibkr.live]
-port = 4001
-```
+   ```toml
+   [ibkr.paper]
+   port = 4002
+
+   [ibkr.live]
+   port = 4001
+   ```
+
+2. `TRADING_MODE=live` in `.env`, `docker compose up -d`, and log in to the
+   live account by hand. Paper is 4002 and live is 4001; the mode not running
+   refuses connections.
+3. `uv run antlia auth ibkr -p live --verify` must show the account marked
+   `(LIVE)`. antlia refuses a `live` session that reaches a paper account and
+   a `paper` session that reaches a live one, so a swapped port fails here.
+
+puppis does not follow: it refuses every account that is not a paper account,
+with no switch to turn that off. To go back, undo 2 and remove the line from 1.
 
 The image's `TRADING_MODE=both` is not supported: it moves each instance's
 settings to `settings_live` / `settings_paper`, outside the volume mounted

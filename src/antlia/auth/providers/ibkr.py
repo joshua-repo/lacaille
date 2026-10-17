@@ -31,7 +31,16 @@ from antlia.auth.spec import Field, SourceSpec
 #: (live) and 4002 (paper) instead -- a difference that presents as a connection
 #: timeout and nothing else, so it is worth setting explicitly rather than
 #: remembering. Override with `port` in the config or ANTLIA_IBKR_<PROFILE>_PORT.
-PROFILE_PORTS = {"paper": 7497, "live": 7496}
+#:
+#: **`live` has no default, deliberately**: the live account is reached only
+#: once `[ibkr.live] port` is configured by hand (the checklist in the
+#: deployment's docs). A default would make it one keyword away.
+PROFILE_PORTS = {"paper": 7497}
+
+#: IBKR's paper accounts start with this. Profiles with these names must
+#: hold accounts of that kind, or the session is refused.
+PAPER_PREFIX = "DU"
+CHECKED_PROFILES = ("paper", "live")
 
 #: For reference in error messages and the config template.
 GATEWAY_PORTS = {"paper": 4002, "live": 4001}
@@ -48,7 +57,7 @@ class IBKRProvider(Provider):
         name="ibkr",
         fields=(
             Field("host", required=False, default="127.0.0.1", doc="gateway address"),
-            Field("port", required=False, cast=int, doc="7497 paper / 7496 live"),
+            Field("port", required=False, cast=int, doc="4002 paper / 4001 live (gateway)"),
             Field("client_id", required=False, cast=int, doc="fixed id; auto if unset"),
             Field("base_client_id", required=False, default=900, cast=int),
             Field("readonly", required=False, default=True, cast=bool),
@@ -76,6 +85,13 @@ class IBKRProvider(Provider):
             return int(port)
         if cred.profile in PROFILE_PORTS:
             return PROFILE_PORTS[cred.profile]
+        if cred.profile == "live":
+            raise ConnectionFailed(
+                "ibkr",
+                "the live profile is switched off: no [ibkr.live] port is configured. "
+                "Reaching the live account is deliberate -- add `port = 4001` under "
+                "[ibkr.live] in ~/.antlia/credentials.toml only once you mean it",
+            )
         raise ConnectionFailed(
             "ibkr",
             f"no port for profile {cred.profile!r}; set ANTLIA_IBKR_PORT or use "
@@ -122,6 +138,11 @@ class IBKRProvider(Provider):
                 else f"is TWS/Gateway running on {host}:{port} with the API enabled?"
             )
             raise ConnectionFailed("ibkr", f"{type(exc).__name__}: {exc} ({cause}{hint})") from exc
+        try:
+            check_profile(cred.profile, list(ib.managedAccounts()), port)
+        except ConnectionFailed:
+            ib.disconnect()
+            raise
         return ib
 
     def verify(self, handle: Any) -> str:
@@ -136,7 +157,7 @@ class IBKRProvider(Provider):
             raise ConnectionFailed(
                 "ibkr", "connected but the gateway manages no accounts (still logging in?)"
             )
-        return f"server v{server}, accounts {accounts}"
+        return f"server v{server}, accounts {', '.join(label(a) for a in accounts)}"
 
     def healthy(self, handle: Any) -> bool:
         try:
@@ -146,3 +167,30 @@ class IBKRProvider(Provider):
 
     def disconnect(self, handle: Any) -> None:
         handle.disconnect()
+
+
+def is_paper(account: str) -> bool:
+    return account.startswith(PAPER_PREFIX)
+
+
+def label(account: str) -> str:
+    """An account with its kind beside it; LIVE is shouted so it is not missed."""
+    return f"{account} ({'paper' if is_paper(account) else 'LIVE'})"
+
+
+def check_profile(profile: str | None, accounts: list[str], port: int) -> None:
+    """Refuse a `paper` session on a live account, or a `live` one on paper.
+
+    That mismatch is what a swapped port looks like, and without this it
+    reads quietly from the wrong account. No accounts yet (a gateway still
+    logging in) passes: there is nothing to read from either.
+    """
+    if profile not in CHECKED_PROFILES or not accounts:
+        return
+    wrong = [a for a in accounts if is_paper(a) != (profile == "paper")]
+    if wrong:
+        raise ConnectionFailed(
+            "ibkr",
+            f"profile {profile!r} on port {port} reached {', '.join(label(a) for a in wrong)}; "
+            "check the port (gateway: paper 4002, live 4001). Refusing the session",
+        )

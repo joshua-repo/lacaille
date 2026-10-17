@@ -140,6 +140,22 @@ def _signed(column: str) -> str:
     return f"CASE WHEN isfinite({x}) AND abs({x}) < 1e300 THEN {x} END"
 
 
+def smart_chain(chains: Sequence[ChainParams], symbol: str) -> ChainParams | None:
+    """The SMART listing to trade, out of every exchange-and-class IBKR returns.
+
+    IBKR lists a chain per exchange **and per trading class**, in no fixed
+    order. SPY has two SMART entries: class `SPY` (the chain) and `2SPY`
+    (adjusted contracts, two expirations). Taking the first one returned 0
+    rows on some calls and not others. The standard class is the one named
+    for the symbol; failing that, the fullest listing.
+    """
+    smart = [c for c in chains if c.exchange == "SMART"]
+    for chain in smart:
+        if chain.trading_class == symbol:
+            return chain
+    return max(smart, key=lambda c: len(c.strikes), default=None)
+
+
 def choose_expirations(
     listed: Sequence[str],
     today: dt.date,
@@ -191,7 +207,7 @@ class IBKRLive(LiveSource):
         with auth.session(self.auth_source, options.get("profile")) as session:
             client = self.client(session)
             underlying = client.stock(symbol)
-            chain = next((c for c in client.chains(underlying) if c.exchange == "SMART"), None)
+            chain = smart_chain(client.chains(underlying), symbol)
             if chain is None:
                 raise LookupError(f"ibkr lists no SMART option chain for {symbol!r}")
 

@@ -35,13 +35,16 @@ TEMPLATE = """\
 host = "127.0.0.1"
 # readonly = true          # false permits order placement -- antlia never needs it
 
-# Ports below are TWS's. IB Gateway listens on 4002 (paper) / 4001 (live) --
+# IB Gateway's ports (lacaille's ops/ib-gateway). TWS uses 7497 / 7496 --
 # using the wrong pair looks exactly like "the gateway is not running".
 [ibkr.paper]
-port = 7497
+port = 4002
 
-[ibkr.live]
-port = 7496
+# The live account is off until this is uncommented, deliberately: antlia has
+# no default port for it, and refuses a "live" session that reaches a paper
+# account (or the reverse).
+# [ibkr.live]
+# port = 4001
 
 [thetadata]
 # One of these three, not all:

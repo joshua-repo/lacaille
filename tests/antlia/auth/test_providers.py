@@ -58,7 +58,9 @@ class TestIBKR:
 
     def test_profile_picks_the_port(self):
         assert self.provider.port_for(cred_for(self.provider, "paper")) == 7497
-        assert self.provider.port_for(cred_for(self.provider, "live")) == 7496
+        # Live has no default: it is reached only by configuring it.
+        with pytest.raises(ConnectionFailed, match="live profile is switched off"):
+            self.provider.port_for(cred_for(self.provider, "live"))
 
     def test_explicit_port_wins_over_profile(self):
         assert self.provider.port_for(cred_for(self.provider, "paper", port=4001)) == 4001
@@ -174,7 +176,8 @@ class TestVerify:
             def managedAccounts(self):
                 return self.accounts
 
-        assert "DU123" in provider.verify(Gateway(["DU123"]))
+        assert "DU123 (paper)" in provider.verify(Gateway(["DU123"]))
+        assert "U456 (LIVE)" in provider.verify(Gateway(["U456"]))
         # Connected but still logging in: the socket is up and the session is
         # useless, which is exactly the state a bare connect() calls success.
         with pytest.raises(ConnectionFailed, match="manages no accounts"):
@@ -357,3 +360,54 @@ class TestTrading212Pacing:
         )()
         for hook in hooks["response"]:
             hook(response)  # must not raise
+
+
+class TestProfileMatchesAccount:
+    """A `paper` session on a live account, or the reverse, is a swapped port."""
+
+    @pytest.mark.parametrize(
+        ("profile", "accounts"),
+        [("paper", ["U16200976"]), ("paper", ["DU1", "U2"]), ("live", ["DUH377651"])],
+    )
+    def test_a_mismatch_is_refused(self, profile, accounts):
+        from antlia.auth.providers.ibkr import check_profile
+
+        with pytest.raises(ConnectionFailed, match="check the port"):
+            check_profile(profile, accounts, 4002)
+
+    @pytest.mark.parametrize(
+        ("profile", "accounts"),
+        [("paper", ["DUH377651"]), ("live", ["U16200976"]), ("gw", ["U1"]), ("paper", [])],
+    )
+    def test_a_match_or_an_unchecked_profile_passes(self, profile, accounts):
+        from antlia.auth.providers.ibkr import check_profile
+
+        check_profile(profile, accounts, 4002)
+
+    def test_connect_disconnects_before_refusing(self, monkeypatch):
+        import sys
+        import types
+
+        from antlia.auth.credentials import resolve
+        from antlia.auth.ratelimit import Unlimited
+
+        events: list[str] = []
+
+        class IB:
+            def connect(self, *a, **k):
+                events.append("connect")
+
+            def managedAccounts(self):
+                return ["U16200976"]
+
+            def disconnect(self):
+                events.append("disconnect")
+
+        sdk = types.ModuleType("ib_async")
+        sdk.IB = IB  # type: ignore[attr-defined]
+        monkeypatch.setitem(sys.modules, "ib_async", sdk)
+        provider = IBKRProvider()
+        cred = resolve(provider.spec, "paper", {"port": 4002})
+        with pytest.raises(ConnectionFailed, match="U16200976 \\(LIVE\\)"):
+            provider.connect(cred, Unlimited())
+        assert events == ["connect", "disconnect"]

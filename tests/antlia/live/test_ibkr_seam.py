@@ -123,3 +123,19 @@ def test_raw_is_the_recorded_shape_and_must_not_drift():
     # orphans them; a replacement client maps onto these, not the reverse.
     assert ibkr.RAW[:3] == ("conId", "symbol", "lastTradeDateOrContractMonth")
     assert {"bid", "bidSize", "ask", "askSize", "time", "modelGreeks.delta"} <= set(ibkr.RAW)
+
+
+def test_the_standard_class_wins_whatever_order_ibkr_lists_them_in():
+    # Measured on SPY, 2026-10-17: two SMART entries, order varying per call.
+    adjusted = ChainParams("SMART", ("20261120", "20261127"), (500.0, 600.0), "100", "2SPY")
+    standard = ChainParams("SMART", ("20261019", "20261020"), tuple(range(400, 891)), "100", "SPY")
+    other = ChainParams("CBOE", ("20261019",), (500.0,), "100", "SPY")
+    for listing in ([adjusted, standard, other], [other, standard, adjusted]):
+        assert ibkr.smart_chain(listing, "SPY") is standard
+
+
+def test_without_a_class_named_for_the_symbol_the_fullest_listing_wins():
+    thin = ChainParams("SMART", ("20261120",), (1.0,), "100", "XYZ1")
+    full = ChainParams("SMART", ("20261120",), (1.0, 2.0, 3.0), "100", "XYZ2")
+    assert ibkr.smart_chain([thin, full], "XYZ") is full
+    assert ibkr.smart_chain([], "XYZ") is None
