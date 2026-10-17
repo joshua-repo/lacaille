@@ -3,7 +3,7 @@
 #   docker compose -f ops/ib-gateway/compose.yml up -d     # from the repo root
 #   cd ops/ib-gateway && docker compose up -d              # or from here
 #
-# Then log in by hand at http://127.0.0.1:6080 -- no broker password is stored
+# Then log in by hand at http://127.0.0.1:6080/vnc.html -- no broker password is stored
 # anywhere. The one secret, VNC_SERVER_PASSWORD, lives in ops/ib-gateway/.env
 # (gitignored); compose reads it because it sits beside this file. See
 # README.md here for the picture and the traps.

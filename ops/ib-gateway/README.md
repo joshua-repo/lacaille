@@ -72,7 +72,8 @@ paper orders through this gateway.
 ## Logging in
 
 1. `docker compose -f ops/ib-gateway/compose.yml up -d`
-2. Open `http://127.0.0.1:6080`, Connect, enter the VNC password.
+2. Open `http://127.0.0.1:6080/vnc.html?autoconnect=1&resize=scale` (the bare
+   `:6080` is only a file listing) and enter the VNC password.
 3. In the gateway's login dialog, log in to the **paper** account (or live,
    if `.env` says `TRADING_MODE=live`). Confirm the 2FA on your phone.
 4. Check: `uv run antlia auth ibkr -p paper --verify` names a `DU...` account.
