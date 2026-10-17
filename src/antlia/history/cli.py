@@ -8,6 +8,9 @@
     antlia history coverage option_eod AAPL --start 2026-06-01 --end 2026-08-28
     antlia history read equity_eod AAPL --start 2026-08-17 --end 2026-08-28
     antlia history ingests option_eod AAPL     # what --as-of accepts
+    antlia history record SPY --max-dte 7 --strikes 745,775 --every 15m
+    antlia history record SPY --max-dte 7 --strikes 745,775 --once
+    antlia history recordings SPY              # every attempt, holes included
 
 `plan` is the one to run first on a metered key: it prints how many vendor
 requests a `fill` would make, and costs none of them.
@@ -34,7 +37,7 @@ from typing import Any
 
 from antlia import auth, history
 from antlia.auth.errors import AuthError
-from antlia.history import ingest, ledger, store, types
+from antlia.history import attempts, ingest, ledger, recorder, store, types
 from antlia.history.errors import HistoryError
 
 Group = Callable[[argparse.ArgumentParser], None]
@@ -93,6 +96,28 @@ def repairable(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--repair", action="store_true", help="quarantine bad files and clear leaked staging"
     )
+
+
+def recording(parser: argparse.ArgumentParser) -> None:
+    """What to record and how often. The slice is `live.option_chain()`'s."""
+    parser.add_argument("symbol")
+    parser.add_argument("--every", default="15m", help="grid step, 09:30-16:00 New York (15m)")
+    parser.add_argument("--once", action="store_true", help="record one snapshot now, any hour")
+    parser.add_argument("--min-dte", type=int, default=None)
+    parser.add_argument("--max-dte", type=int, default=None)
+    parser.add_argument("--strikes", default=None, metavar="LO,HI", help="default: +/-15%%")
+    parser.add_argument("--rights", default="CP", help="C, P or CP")
+    parser.add_argument("--profile", default=None, help="ibkr profile (default: paper)")
+    parser.add_argument(
+        "--client-id",
+        type=int,
+        default=recorder.CLIENT_ID,
+        help=f"gateway client id ({recorder.CLIENT_ID}; 900+ is antlia's automatic range)",
+    )
+
+
+def maybe_symbol(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("symbol", nargs="?", default=None)
 
 
 def one_symbol(parser: argparse.ArgumentParser) -> None:
@@ -257,6 +282,57 @@ def ingests(args: argparse.Namespace) -> int:
     return 0
 
 
+def record(args: argparse.Namespace) -> int:
+    options: dict[str, Any] = {"rights": args.rights}
+    for flag in ("min_dte", "max_dte", "profile"):
+        if getattr(args, flag) is not None:
+            options[flag] = getattr(args, flag)
+    if args.strikes:
+        lo, hi = (float(x) for x in args.strikes.split(","))
+        options["strikes"] = (lo, hi)
+    base = history.path(args.store)
+    if args.once:
+        attempt = recorder.record_once(
+            args.symbol, options, recorder.now(), base, client_id=args.client_id
+        )
+        attempts.write(base, [attempt])
+        print(attempt)
+        return 0 if attempt.status != attempts.FAILED else 1
+    every = recorder.parse_every(args.every)
+    first = recorder.next_tick(recorder.now(), every)
+    print(f"recording {args.symbol} every {args.every}, 09:30-16:00 New York, weekdays")
+    print(f"next      {first.astimezone(recorder.NY):%a %Y-%m-%d %H:%M %Z}   (Ctrl+C stops)")
+    try:
+        recorder.run(args.symbol, options, every, base, client_id=args.client_id)
+    except KeyboardInterrupt:
+        print("stopped")
+    return 0
+
+
+def recordings(args: argparse.Namespace) -> int:
+    log = history.recordings(args.symbol, store=args.store)
+    if not log.num_rows:
+        print("no recording attempts yet")
+        return 0
+    shown = log.to_pylist()
+    if not args.verbose and len(shown) > 30:
+        print(f"... {len(shown) - 30} earlier (-v for all)")
+        shown = shown[-30:]
+    for row in shown:
+        took = ""
+        if row["started_at"] and row["finished_at"]:
+            took = f"{(row['finished_at'] - row['started_at']).total_seconds():6.1f}s"
+        print(
+            f"{row['scheduled_at']:%Y-%m-%d %H:%M}Z {row['symbol']:<6} {row['status']:<7} "
+            f"{row['rows']:>6} rows {took:>7}  {row['detail']}"
+        )
+    counts: dict[str, int] = {}
+    for row in log.to_pylist():
+        counts[row["status"]] = counts.get(row["status"], 0) + 1
+    print("total    " + ", ".join(f"{n} {status}" for status, n in sorted(counts.items())))
+    return 0
+
+
 # -- the table -------------------------------------------------------------
 
 
@@ -290,6 +366,8 @@ COMMANDS: tuple[Command, ...] = (
     ),
     Command("read", "print stored rows (never fetches)", read, (target, dates(True), shape, rows)),
     Command("ingests", "the moments --as-of can be given", ingests, (target, dates(False))),
+    Command("record", "keep live option chains on a schedule", record, (recording,)),
+    Command("recordings", "every recording attempt, holes included", recordings, (maybe_symbol,)),
 )
 
 

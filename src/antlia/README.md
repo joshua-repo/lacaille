@@ -296,6 +296,7 @@ snap.table            # antlia.schema.OPTION_QUOTE columns, one row per contract
 snap.received_at      # when the answer arrived; each row's `stamp` is the quote's own time
 history.record(snap)  # keep it -- reading never stores anything
 history.option_quotes("AAPL", "2026-10-01", "2026-10-31")  # every recording, read back
+history.option_quotes("AAPL", "2026-10-01", "2026-10-31", snapshot_at=snap.snapshot_at)  # just this one
 ```
 
 The rows carry the same identity columns as `history.option_eod`
@@ -315,6 +316,34 @@ yesterday's history directly.
   `plan` and no `coverage()` -- there is no complete set of moments to measure
   against -- and each snapshot is told apart by `snapshot_at`.
 
+
+## Recording on a schedule
+
+`antlia history record` keeps option-chain snapshots on a wall-clock grid, in
+one long-running process holding one gateway session:
+
+```bash
+antlia history record SPY --max-dte 7 --strikes 745,775 --rights P --every 15m
+antlia history record SPY --max-dte 7 --strikes 745,775 --rights P --once   # one, now
+antlia history recordings SPY                                               # every attempt
+```
+
+- **The grid** is every `--every` from 09:30 to 16:00 New York, inclusive, on
+  weekdays -- so the close is always recorded. `--once` records immediately, at
+  any hour.
+- **Never queued.** If a recording overruns its slot, the times it ran through
+  are logged `skipped`; the next recording waits for the next slot.
+- **Every attempt is logged** -- `ok`, `empty`, `failed` (with the error) or
+  `skipped` -- in `<store>/recordings/`, read back by `history.recordings()`.
+  A dataset you record yourself is only useful if you can see its holes.
+- **Its own client id** (950, `--client-id`), so a recorder running all day
+  never collides with a script you start by hand.
+- **Narrow the slice.** One snapshot is a market-data request per contract,
+  batched; a symbol that lists an expiration every day (SPY) needs a short
+  DTE window and a strike band.
+
+What you record through a broker is licensed for your own use. Keep it, and
+any export of it, out of public repositories.
 ## `antlia.history`
 
 Historical market data, cached locally, in one shape whichever vendor answered.

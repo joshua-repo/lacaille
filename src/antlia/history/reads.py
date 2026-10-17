@@ -296,18 +296,26 @@ def option_quotes(
     store: str | Path | None = None,
     latest: bool = True,
     as_of: dt.datetime | None = None,
+    snapshot_at: dt.datetime | None = None,
 ) -> Any:
     """Recorded option snapshots, one row per contract per snapshot.
 
     Only what `history.record()` kept: nothing is fetched, ever, and a day
     with no recording is simply absent. Group by `snapshot_at` to take one
-    snapshot at a time. The columns are `antlia.schema.OPTION_QUOTE`'s, the
-    same as the live read that produced them.
+    snapshot at a time, or pass `snapshot_at=` (a live `Snapshot.snapshot_at`,
+    or a value read back) to get exactly that one. The columns are
+    `antlia.schema.OPTION_QUOTE`'s, the same as the live read that produced
+    them.
     """
     base, src = registry.bind(source, store, "option_quote")
     spec = spec_for("option_quote")
     span = window_for(start, end)
     predicate, names = _match(symbol, spec.subject)
+    where: list[str] = [predicate]
+    params: list[object] = list(names)
+    if snapshot_at is not None:
+        where.append('"snapshot_at" = ?')
+        params.append(snapshot_at)
     data = storage.read(
         base,
         src.name,
@@ -315,8 +323,8 @@ def option_quotes(
         src.projection(spec.name),
         start=span.start,
         end=span.end,
-        where=[predicate],
-        params=names,
+        where=where,
+        params=params,
         latest=latest,
         as_of=as_of,
     )
@@ -438,3 +446,22 @@ __all__ = [
     "rate_daily",
     "symbols",
 ]
+
+
+def recordings(
+    symbol: str | None = None,
+    *,
+    table: str | None = None,
+    frame: Frame = "arrow",
+    store: str | Path | None = None,
+) -> Any:
+    """Every attempt the recorder made, oldest first -- including the failures.
+
+    One row per attempt: when it was scheduled, started and finished, the
+    slice asked for, the rows kept, and `ok` / `empty` / `failed` /
+    `skipped`. This is how a self-recorded dataset shows its holes; it is not
+    the coverage ledger.
+    """
+    from antlia.history import attempts
+
+    return _as_frame(attempts.read(storage.root(store), symbol=symbol, table=table), frame)

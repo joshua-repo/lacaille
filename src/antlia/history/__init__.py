@@ -55,6 +55,7 @@ from antlia.history.reads import (
     option_eod,
     option_quotes,
     rate_daily,
+    recordings,
     symbols,
 )
 from antlia.history.registry import chain, register, source, unregister
@@ -96,6 +97,7 @@ __all__ = [
     "plan",
     "rate_daily",
     "record",
+    "recordings",
     "register",
     "source",
     "symbols",

@@ -96,6 +96,11 @@ def ledger_dir(base: Path) -> Path:
     return base / "ledger"
 
 
+def recordings_dir(base: Path) -> Path:
+    """The recording-attempt log: one row per try, see `history.recordings`."""
+    return base / "recordings"
+
+
 def staging_dir(base: Path) -> Path:
     return base / STAGING
 

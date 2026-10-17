@@ -32,5 +32,18 @@ class Snapshot:
     def rows(self) -> int:
         return int(self.table.num_rows)
 
+    @property
+    def snapshot_at(self) -> dt.datetime | None:
+        """When the chain was asked for: the `snapshot_at` every row carries.
+
+        Not `received_at` -- a snapshot is asked for, then answered seconds
+        later. This is the value `history.option_quotes(snapshot_at=)` reads
+        back by. None for an empty snapshot.
+        """
+        if not self.rows or "snapshot_at" not in self.table.column_names:
+            return None
+        value: dt.datetime = self.table.column("snapshot_at")[0].as_py()
+        return value
+
     def __str__(self) -> str:
         return f"{self.dataset} via {self.source}: {self.rows} rows at {self.received_at:%H:%M:%S}"

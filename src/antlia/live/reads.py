@@ -61,6 +61,7 @@ def option_chain(
     min_dte: int | None = None,
     strikes: tuple[float, float] | None = None,
     rights: str = "CP",
+    client_id: int | None = None,
 ) -> Snapshot:
     """A slice of `symbol`'s option chain, quoted now.
 
@@ -69,6 +70,10 @@ def option_chain(
     choose the expirations; `strikes=(lo, hi)` the strike band (by default the
     source picks a band around the underlying); `rights` is `"C"`, `"P"` or
     `"CP"`.
+
+    `client_id` pins the gateway client id for the session this opens; a
+    long-running process (the recorder) needs one of its own, because the
+    automatic ids restart at the same number in every process.
 
     The result is a `Snapshot`: `.table` in `antlia.schema.OPTION_QUOTE`'s
     columns, `.raw` as the broker sent it. Pass it to `history.record()` to
@@ -86,6 +91,7 @@ def option_chain(
         min_dte=min_dte,
         strikes=strikes,
         rights=rights,
+        client_id=client_id,
     )
     received = dt.datetime.now(dt.UTC)
     if raw is None:

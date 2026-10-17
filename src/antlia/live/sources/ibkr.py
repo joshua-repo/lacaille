@@ -204,7 +204,8 @@ class IBKRLive(LiveSource):
         asked = dt.datetime.now(dt.UTC)
         today = asked.astimezone(NY).date()
 
-        with auth.session(self.auth_source, options.get("profile")) as session:
+        pinned = {"client_id": options["client_id"]} if options.get("client_id") else {}
+        with auth.session(self.auth_source, options.get("profile"), **pinned) as session:
             client = self.client(session)
             underlying = client.stock(symbol)
             chain = smart_chain(client.chains(underlying), symbol)
