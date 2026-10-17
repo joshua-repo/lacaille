@@ -1,7 +1,7 @@
 [project]
 name = "lacaille"
 version = "0.1.0"
-description = "Options research: market data (antlia), backtesting (vela) and rendering (pictor)."
+description = "Options research: market data (antlia), backtesting (vela), rendering (pictor) and forward testing (puppis)."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -71,20 +71,21 @@ dev = [
 antlia = "antlia.cli:main"
 vela = "vela.run.cli:main"
 pictor = "pictor.cli:app"
+puppis = "puppis.cli:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/antlia", "src/vela", "src/pictor"]
+packages = ["src/antlia", "src/vela", "src/pictor", "src/puppis"]
 
 # --- The package boundaries. The three packages share one environment, so
 # these contracts are the only thing enforcing them (`uv run lint-imports`).
 # A broken contract means the import is in the wrong package; the fix is to
 # move the code, not to widen the contract.
 [tool.importlinter]
-root_packages = ["antlia", "vela", "pictor"]
+root_packages = ["antlia", "vela", "pictor", "puppis"]
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
@@ -92,6 +93,26 @@ name = "antlia imports neither consumer"
 type = "forbidden"
 source_modules = ["antlia"]
 forbidden_modules = ["vela", "pictor"]
+
+# puppis is the top of the stack: it imports antlia and vela, and nothing
+# imports it. pictor will read its journal folder, never the package.
+[[tool.importlinter.contracts]]
+name = "nothing imports puppis"
+type = "forbidden"
+source_modules = ["antlia", "vela", "pictor"]
+forbidden_modules = ["puppis"]
+
+[[tool.importlinter.contracts]]
+name = "puppis takes no rendering dependency"
+type = "forbidden"
+source_modules = ["puppis"]
+forbidden_modules = ["matplotlib", "quantstats"]
+
+[[tool.importlinter.contracts]]
+name = "nothing in puppis imports its CLI"
+type = "forbidden"
+source_modules = ["puppis.broker", "puppis.guard", "puppis.ibkr"]
+forbidden_modules = ["puppis.cli"]
 
 [[tool.importlinter.contracts]]
 name = "vela and pictor never import each other (the runs folder is the interface)"
