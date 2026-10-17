@@ -27,7 +27,8 @@ def test_the_defaults_are_the_published_ports():
     assert info is not None
     assert info.screen_url == "http://127.0.0.1:6080/vnc.html?autoconnect=1&resize=scale"
     assert info.vnc_addr == "127.0.0.1:5900"
-    assert info.control_addr == "127.0.0.1:7462"
+    # No IBC command server in this deployment, so none unless configured.
+    assert info.control_addr is None and info.control is False
     assert info.source == "ibkr" and info.profile == "live"
 
 
@@ -63,7 +64,7 @@ def test_a_zero_port_means_not_published(monkeypatch):
 def test_host_is_shared_with_auth_so_a_remote_gateway_is_one_edit(config):
     # `host` is the same field auth resolves for the API socket. A gateway on
     # another machine moves all four endpoints at once.
-    config("[ibkr]\nhost = '10.0.0.5'\n")
+    config("[ibkr]\nhost = '10.0.0.5'\ncontrol_port = 7462\n")
     info = gateway.describe("ibkr", "live")
     assert info is not None
     assert info.screen_url is not None and info.screen_url.startswith("http://10.0.0.5:6080/")

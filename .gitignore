@@ -13,10 +13,11 @@ __pycache__/
 .pytest_cache/
 .coverage
 
-# Credentials live in ~/.antlia (API keys) and ~/ib-gateway (the gateway), never
-# in the repo -- but a stray copy here must not be one `git add .` away from
-# being published. `.env` also holds which warmed symbol and window the
-# real-data tests read: research identity, not code.
+# API keys live in ~/.antlia, outside the repo -- but a stray copy here must not
+# be one `git add .` away from being published. `.env` matches at any depth:
+# the root one holds which warmed symbol and window the real-data tests read
+# (research identity, not code), and ops/ib-gateway/.env the gateway's VNC
+# password.
 credentials.toml
 .env
 

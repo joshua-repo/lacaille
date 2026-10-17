@@ -14,7 +14,7 @@ def test_no_password_configured_means_novnc_will_ask():
 
 
 def test_the_gateway_projects_own_variable_supplies_it(monkeypatch):
-    # `set -a; . ~/ib-gateway/.env; set +a` is the whole contract -- the same
+    # `set -a; . ops/ib-gateway/.env; set +a` is the whole contract -- the same
     # shell line that starts the container also supplies this.
     monkeypatch.setenv(VNC_PASSWORD_ENV, "a b$c")
     info = gateway.describe("ibkr", "live")

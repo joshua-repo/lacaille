@@ -1,0 +1,62 @@
+# IB Gateway for lacaille: the whole deployment, in one file.
+#
+#   docker compose -f ops/ib-gateway/compose.yml up -d     # from the repo root
+#   cd ops/ib-gateway && docker compose up -d              # or from here
+#
+# Then log in by hand at http://127.0.0.1:6080 -- no broker password is stored
+# anywhere. The one secret, VNC_SERVER_PASSWORD, lives in ops/ib-gateway/.env
+# (gitignored); compose reads it because it sits beside this file. See
+# README.md here for the picture and the traps.
+#
+# `name` keeps the project, container and volume names this deployment has
+# always had, so the existing settings volume carries over.
+name: ib-gateway
+
+services:
+  ib-gateway:
+    image: ghcr.io/gnzsnz/ib-gateway:stable
+    restart: unless-stopped
+    environment:
+      # paper unless .env says live. Changing it recreates the container,
+      # which means logging in again.
+      TRADING_MODE: ${TRADING_MODE:-paper}
+      # Protects the screen, which is how you log in. Refuse to start without
+      # one rather than serve the login dialog unprotected.
+      VNC_SERVER_PASSWORD: ${VNC_SERVER_PASSWORD:?set VNC_SERVER_PASSWORD in ops/ib-gateway/.env}
+      # Off, because puppis places paper orders through this gateway. A
+      # client's own `readonly=True` blocks nothing; this setting would.
+      READ_ONLY_API: "no"
+      # The gateway's own nightly soft restart keeps the session without a
+      # 2FA. Scheduled in the user's zone, after the US close, while the
+      # laptop is normally up -- the old 11:59 PM UTC fell when WSL2 slept.
+      TIME_ZONE: Europe/London
+      AUTO_RESTART_TIME: "10:00 PM"
+      # Where the gateway keeps jts.ini and the soft-restart token. Without a
+      # persisted path every recreate is a full login.
+      TWS_SETTINGS_PATH: /home/ibgateway/settings
+    volumes:
+      - ib-gateway-settings:/home/ibgateway/settings
+    ports:
+      # The API, through the image's socat: the gateway accepts local
+      # connections only, and socat makes the host's look local.
+      - "127.0.0.1:4002:4004"   # paper
+      - "127.0.0.1:4001:4003"   # live; refuses in paper mode, which is the right symptom
+      - "127.0.0.1:5900:5900"   # VNC, for a native viewer
+
+  # The gateway's screen in a browser. VNC is raw TCP and browser JS cannot
+  # open a TCP socket, so websockify translates. Stateless: no mounts, no
+  # credentials; it installs noVNC at start, so give it ~12s. Deliberately no
+  # depends_on -- restarting it must never restart the gateway.
+  novnc:
+    image: alpine:3.20
+    restart: unless-stopped
+    command: >
+      sh -c "apk add --no-cache novnc websockify &&
+             websockify --web /usr/share/novnc 8080 ib-gateway:5900"
+    ports:
+      - "127.0.0.1:6080:8080"
+
+volumes:
+  # Created root-owned against an image that runs as 1000:1000. If it is ever
+  # recreated, chown it once (README.md, "The settings volume").
+  ib-gateway-settings:

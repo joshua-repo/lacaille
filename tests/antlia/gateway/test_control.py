@@ -40,7 +40,7 @@ def test_a_refused_connection_raises_and_says_why(monkeypatch):
     message = str(caught.value)
     # Prose, but it has to name the thing the reader can go and change.
     assert "CommandServerPort=0" in message
-    assert "override" in message
+    assert "compose.yml" in message
 
 
 def test_it_is_still_a_connectionfailed(monkeypatch):

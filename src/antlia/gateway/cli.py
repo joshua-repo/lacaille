@@ -39,14 +39,19 @@ def render(info: GatewayInfo) -> str:
         f"{label}",
         f"  screen   {screen}",
         f"  vnc      {info.vnc_addr or '(not published)'}",
-        f"  control  {info.control_addr or '(not configured)'}"
-        f"   {OK if info.control else BAD} {'answers' if info.control else 'no answer'}",
     ]
-    if info.control_addr and not info.control:
+    if not info.control_addr:
+        lines.append("  control  (not configured -- this deployment has no IBC command server)")
+    else:
         lines.append(
-            "           IBC's command server ships disabled (CommandServerPort=0);"
-            "\n           ops/ib-gateway/ib-gateway.override.yml switches it on."
+            f"  control  {info.control_addr}"
+            f"   {OK if info.control else BAD} {'answers' if info.control else 'no answer'}"
         )
+        if not info.control:
+            lines.append(
+                "           IBC's command server ships disabled (CommandServerPort=0);"
+                "\n           ops/ib-gateway/compose.yml leaves it off."
+            )
     return "\n".join(lines)
 
 

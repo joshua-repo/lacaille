@@ -71,8 +71,8 @@ def send(source: str, host: str, port: int, command: str, timeout: float = TIMEO
         raise ControlUnavailable(
             source,
             f"nothing is listening on {host}:{port}. IBC's command server ships disabled "
-            f"(CommandServerPort=0) and is switched on by applying "
-            f"ops/ib-gateway/ib-gateway.override.yml to the gateway container",
+            f"(CommandServerPort=0), and ops/ib-gateway/compose.yml leaves it off; "
+            f"restart with `docker compose restart ib-gateway` instead",
         ) from exc
     except TimeoutError as exc:
         raise ControlUnavailable(

@@ -26,6 +26,12 @@ def test_a_live_control_channel_reads_as_answering(monkeypatch, capsys):
     assert "answers" in capsys.readouterr().out
 
 
+def test_no_control_port_reads_as_not_configured_not_as_a_failure(capsys):
+    assert main(["-p", "paper"]) == 0
+    out = capsys.readouterr().out
+    assert "not configured" in out and "no answer" not in out
+
+
 def test_a_source_with_no_gateway_says_so_when_asked_for_by_name(capsys):
     assert main(["-s", "trading212"]) == 0
     assert "no gateway" in capsys.readouterr().out

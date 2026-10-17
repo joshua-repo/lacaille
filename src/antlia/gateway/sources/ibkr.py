@@ -2,22 +2,22 @@
 
 The layering this adapter exists to serve, and which nothing here may blur:
 
-    IBC (in the container) --drives the Swing login dialog--> IB Gateway
-                                 --and only once logged in--> :4001
+    a human at the screen (or IBC) --the Swing login dialog--> IB Gateway
+                                 --and only once logged in--> :4001 / :4002
                                                                 |
                                                              antlia.auth
                                                                 |
                                                              consumers
 
 **IB Gateway has no headless mode and no login API.** The only way in is that
-GUI dialog, the only thing that can type into it is IBC, and IBC must be inside
-the container. So antlia does not, and will never, log a gateway in: there is
-no interface to call and `TWS_PASSWORD` has nowhere to live here. What this
-module offers instead is the two things that *are* reachable from outside --
-a way to look at the screen, and a way to ask IBC to restart the gateway.
+GUI dialog: the user types into it through the screen below (this repo's
+deployment, since 2026-10-17), or IBC does from inside the container. So
+antlia does not, and will never, log a gateway in: there is no interface to
+call and `TWS_PASSWORD` has nowhere to live here. What this module offers
+instead is what *is* reachable from outside -- a way to look at the screen,
+and, where IBC's command server is switched on, a way to ask it to restart.
 
-Three endpoints, published next to the API port by
-`ops/ib-gateway/ib-gateway.override.yml`:
+The endpoints, as `ops/ib-gateway/compose.yml` publishes them:
 
 - **the noVNC bridge** (6080), a web page showing the gateway's own screen.
   VNC is RFB over raw TCP and browser JS cannot open a TCP socket, so a
@@ -29,14 +29,16 @@ Three endpoints, published next to the API port by
   the frame -- sees keystrokes before the remote screen does. That is a
   property of the browser rather than of the web client, so the escape hatch
   is to take the browser out of the path.
-- **IBC's command server** (7462), off in a stock gateway. See `ibc.py`.
+- **IBC's command server**, off in a stock gateway and in this deployment, so
+  `control_port` defaults to 0 (none). Set it where a command server is on;
+  see `ibc.py`.
 
 Settings live in the source's own config section, beside the ones `auth`
 resolves:
 
     [ibkr]
     host = "127.0.0.1"
-    control_port = 7462
+    control_port = 7462      # only where IBC's command server is switched on
 
     [ibkr.live]
     screen_port = 6080
@@ -73,7 +75,7 @@ SCREEN_PARAMS = (("autoconnect", "1"), ("resize", "scale"))
 #: match the gateway compose project's own. It is the *last* place consulted,
 #: under antlia's own spellings, and it exists so that
 #:
-#:     set -a; . ~/ib-gateway/.env; set +a
+#:     set -a; . ops/ib-gateway/.env; set +a
 #:
 #: is enough to supply it -- the same shell line that starts the container.
 #: Nothing here reads that project's files; the variable is the whole contract.
@@ -114,9 +116,9 @@ class IBKRGateway(Gateway):
             Field(
                 "control_port",
                 required=False,
-                default=7462,
+                default=0,
                 cast=int,
-                doc="IBC command server; 0 = none",
+                doc="IBC command server; 0 = none (this deployment has none)",
             ),
             Field(
                 "vnc_password",

@@ -11,7 +11,7 @@ def no_ambient_vnc_password(monkeypatch):
 
     The shared `isolated_state` fixture clears `ANTLIA_*`; this variable is
     deliberately the gateway project's own spelling, so a developer who has
-    sourced `~/ib-gateway/.env` in their shell would otherwise run these tests
+    sourced `ops/ib-gateway/.env` in their shell would otherwise run these tests
     against a real password.
     """
     monkeypatch.delenv(VNC_PASSWORD_ENV, raising=False)

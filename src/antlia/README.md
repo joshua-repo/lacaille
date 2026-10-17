@@ -751,7 +751,7 @@ info.redacted()  # redacted
 
 It resolves from `[ibkr] vnc_password`, `$ANTLIA_IBKR_LIVE_VNC_PASSWORD`, and
 finally the plain `$VNC_SERVER_PASSWORD` — the gateway compose project's own
-spelling, so `set -a; . ~/ib-gateway/.env; set +a` is enough to supply it.
+spelling, so `set -a; . ops/ib-gateway/.env; set +a` is enough to supply it.
 Nothing here reads that project's files; the variable is the whole contract.
 
 ### Configuration, and the host side of those ports
@@ -762,7 +762,7 @@ resolves from there — one broker, one place:
 ```toml
 [ibkr]
 host = "127.0.0.1"     # the same field auth reads, so a remote gateway is one edit
-control_port = 7462    # IBC's command server; 0 means "not published"
+control_port = 0       # IBC's command server: none in ops/ib-gateway (the default)
 
 [ibkr.live]
 screen_port = 6080     # the noVNC bridge
@@ -772,11 +772,8 @@ vnc_port = 5900        # the VNC server itself
 Any port set to `0` means not published, and that field comes back `None`
 rather than pointing at something that is not there.
 
-The compose override that publishes those ports, the vendored IBC template that
-switches the command server on, and the traps involved in both, are in
-[`ops/ib-gateway/`](ops/ib-gateway/) with their own README. Nothing in there is
-a secret; the credentials stay in the gateway project's own `.env`, outside any
-repository.
+The compose file that publishes those ports, and the traps met getting it
+right, are in `ops/ib-gateway/` at the repo root, with its own README.
 
 **No extras and no vendor SDK.** Like `auth`, this runs on the standard library
 — which is the point, because a gateway is asked about precisely when the

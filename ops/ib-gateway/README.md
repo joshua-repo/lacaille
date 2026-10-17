@@ -1,205 +1,133 @@
-# ops/ib-gateway -- the other side of the ports `antlia.gateway` dials
+# ops/ib-gateway -- the IB Gateway that antlia and puppis connect to
 
-`antlia.gateway` never talks to Docker. It connects to ports on the gateway
-host, the same way `antlia.auth` connects to the API on 4001. What is here is
-the configuration that has to exist on the *other* side of those ports, kept in
-this repo so the gateway project's own files are never edited.
+IB Gateway is a Java desktop application with no headless mode and no login
+API. It runs here in a Docker container with a virtual screen, you log in to
+it by hand through that screen, and everything else talks to it over ports on
+`127.0.0.1`. The whole deployment is one file, `compose.yml`.
 
-It moved here from pictor (2026-09-14) along with the module that uses it: a
-dashboard is not where a broker's infrastructure belongs, and every other
-consumer of `antlia.gateway` would have had to reach into pictor for it.
+```bash
+docker compose -f ops/ib-gateway/compose.yml up -d     # from the repo root
+```
 
-| file | what it does |
+| file | what it is |
 |---|---|
-| `ib-gateway.override.yml` | one override layer over the gateway project. It reconfigures the `ib-gateway` service -- which **recreates** that container, so a full login -- and adds a `novnc` bridge service, which does not touch it. |
-| `ibc-config.ini.tmpl` | the image's IBC template with exactly three lines changed. |
-| `check-ibc-template.sh` | says so when the image's template has moved and ours has gone stale. |
+| `compose.yml` | the gateway and a noVNC bridge to its screen. No secrets. |
+| `.env` | **yours, gitignored**: `VNC_SERVER_PASSWORD=...`, and optionally `TRADING_MODE=live` (the default is `paper`). |
 
-**Nothing here is a secret.** The template carries `${...}` placeholders only
-(checked), and the override reads every value from the environment. The real
-credentials stay in `~/ib-gateway/.env`, outside any repository, where they
-cannot be committed by accident.
+**No broker password is stored anywhere.** You type it into the gateway's own
+login dialog. The image still contains IBC (the login robot it was built
+around); given no credentials, IBC leaves the dialog to you.
 
 ## How the pieces fit
 
-IB Gateway is a Java desktop application. It has no headless mode and no
-login API, so it runs in a Docker container with a virtual screen, and IBC
-(inside the same container) types the username and password into its login
-dialog. Everything else talks to it over ports published on `127.0.0.1`.
-
 ```
- ~/ib-gateway/                       the gateway's compose project (outside any repo)
- ├── docker-compose.yml              base: image, TRADING_MODE default, 4001 + 5900
- └── .env  ───────────────┐          SECRETS: TWS_USERID, TWS_PASSWORD,
-                          │                   VNC_SERVER_PASSWORD
-                          │          SETTINGS: TRADING_MODE, COMPOSE_FILE ──┐
-                          │                                                 │ names
- lacaille/ops/ib-gateway/ │                                                 ▼
- ├── ib-gateway.override.yml ◄──────────────────── layered on top of the base file
- └── ibc-config.ini.tmpl ─────┐ mounted read-only
+ lacaille/ops/ib-gateway/
+ ├── compose.yml ─────────────┐      image, ports, mode, restart time (no secrets)
+ └── .env  (gitignored) ──────┤      VNC_SERVER_PASSWORD; TRADING_MODE if not paper
                               │
-          `docker compose up -d`  (interpolates .env into both files)
-                          │   │
- ┌─ container ib-gateway ─┼───┼──────────────────────────────────────────────┐
- │                        ▼   ▼                                              │
- │   environment ──► IBC renders config.ini from the template                │
- │                   (IbLoginId, IbPassword, TradingMode, ReadOnlyApi, ...)  │
- │                        │                                                  │
- │                        │ types them into the login dialog                 │
- │                        ▼                                                  │
+           `docker compose up -d`  (reads .env beside the file)
+                              │
+ ┌─ container ib-gateway ─────┼──────────────────────────────────────────────┐
+ │                            ▼                                              │
  │   Xvfb (virtual screen) ── IB Gateway (Java) ◄─── 2FA push ─── your phone │
+ │        │                   login dialog: you type, through the screen     │
  │        │                   API 4001 live / 4002 paper (container-local)   │
  │        │                        │                                         │
- │     x11vnc :5900       socat :4003 / :4004       IBC command server :7462 │
+ │     x11vnc :5900           socat :4003 / :4004                            │
  │                                                                           │
  │   /home/ibgateway/settings ◄─ volume ib-gateway_ib-gateway-settings       │
- │   (jts.ini, the autorestart token that spares a 2FA on a soft restart)    │
- └────────┼───────────────────────────┼──────────────────────┼───────────────┘
-          │ 5900                      │ 4003, 4004 (socat)   │ 7462
- ┌─ container novnc ┐                 │                      │
- │ websockify :8080 │                 │                      │
- └────────┼─────────┘                 │                      │
- host ════╪═══════ 127.0.0.1 ═════════╪══════════════════════╪═══════════════
-          │ 6080                      │ 4001 live, 4002 paper│ 7462
-          ▼                           ▼                      ▼
-   browser: the gateway's      antlia.auth / antlia.live   antlia.gateway
-   screen (noVNC)              (client ids 900+);          (status, RESTART)
-                               puppis, its own socket
-                                         ▲
-                                         │ host + port only, no secret
-                               ~/.antlia/credentials.toml
-                               [ibkr.paper] port = 4002, [ibkr.live] port = 4001
-                               (also holds ThetaData / Trading212 / FRED keys)
+ │   (jts.ini, the token that spares a 2FA on the nightly soft restart)      │
+ └────────┼───────────────────────────┼──────────────────────────────────────┘
+          │ 5900                      │ 4003, 4004 (socat)
+ ┌─ container novnc ┐                 │
+ │ websockify :8080 │                 │
+ └────────┼─────────┘                 │
+ host ════╪═══════ 127.0.0.1 ═════════╪═════════════════════════════════════
+          │ 6080                      │ 4002 paper, 4001 live
+          ▼                           ▼
+   browser: the gateway's      antlia.auth / antlia.live (client ids 900+);
+   screen -- log in here       puppis, its own socket
+                                      ▲
+                                      │ host + port only, no secret
+                              ~/.antlia/credentials.toml
+                              [ibkr.paper] port = 4002, [ibkr.live] port = 4001
 ```
-
-Where each secret lives, and who reads it:
 
 | secret | lives in | read by |
 |---|---|---|
-| IBKR username and password | `~/ib-gateway/.env` only | compose → container env → IBC → the login dialog. Nothing in lacaille ever sees it. |
-| second factor | your phone (IB Key) | the IBKR login, on every full (cold) login |
-| VNC password | `~/ib-gateway/.env` | the container's x11vnc; `antlia.gateway` only if it is exported in your shell (it prefills the noVNC link and never prints it) |
-| session state | the `ib-gateway-settings` Docker volume | IB Gateway itself; it is what lets the nightly soft restart skip a 2FA |
-| ThetaData / Trading212 / FRED keys | `~/.antlia/credentials.toml` (mode 600) | `antlia.auth` |
+| IBKR username and password | your head | the gateway's login dialog, typed through noVNC |
+| second factor | your phone (IB Key) | every full login: a cold start, and about once a week |
+| VNC password | `ops/ib-gateway/.env` | the container's x11vnc; `antlia gateway` only if exported in your shell (it prefills the noVNC link and never prints it) |
+| session state | the `ib-gateway-settings` volume | the gateway; it lets the nightly soft restart skip a 2FA |
 
-`~/.antlia/credentials.toml` holds **no IBKR secret**: for IBKR it only says
-where the gateway listens. The gateway is already logged in; a client just
-connects to the port.
+Keep the VNC password out of the repo-root `.env`: VS Code injects that file
+into every launch configuration and test run.
 
-**Read-only is the gateway's setting, not the client's.** `readonly=True` on
-an API client only tells the client library the API is read-only (it skips
-syncing orders at connect); it does not stop that client from sending one.
-The block that counts is `READ_ONLY_API` (IBC's `ReadOnlyApi`), and it is
-`"no"` here because puppis places paper orders through this gateway.
+**Read-only is the gateway's setting, not the client's.** `readonly=True` on an
+API client only tells the client library the API is read-only (it skips syncing
+orders at connect); it does not stop that client from sending one. The block
+that counts is `READ_ONLY_API`, and it is `"no"` here because puppis places
+paper orders through this gateway.
 
-## The two absolute paths
+## Logging in
 
-Both are absolute on purpose, and both have to be updated together if this
-directory ever moves:
+1. `docker compose -f ops/ib-gateway/compose.yml up -d`
+2. Open `http://127.0.0.1:6080`, Connect, enter the VNC password.
+3. In the gateway's login dialog, log in to the **paper** account (or live,
+   if `.env` says `TRADING_MODE=live`). Confirm the 2FA on your phone.
+4. Check: `uv run antlia auth ibkr -p paper --verify` names a `DU...` account.
 
-1. `COMPOSE_FILE` in `~/ib-gateway/.env` names this override.
-2. The `volumes:` entry in the override names `ibc-config.ini.tmpl`.
+The gateway restarts itself every night at 10:00 PM London time without asking
+for a login (`AUTO_RESTART_TIME`). It cannot skip the full login IBKR demands
+about once a week, nor one after a cold start -- the container being recreated,
+Docker restarting, or the machine (on WSL2, Windows) rebooting.
 
-```
-COMPOSE_FILE=docker-compose.yml:/home/neroo/repo/lacaille/ops/ib-gateway/ib-gateway.override.yml
-```
+## Everyday commands
 
-Relative paths in an override resolve against the **project** directory
-(`~/ib-gateway`), not against the override's own location -- measured, and it
-cost a silently-created directory. Since the override now lives in a different
-tree from the project, relative would not merely be fragile, it would be wrong.
-
-That `COMPOSE_FILE` line is doing more than saving typing. Without it a bare
-`docker compose up -d` in the gateway directory *drops* the override and
-recreates the gateway without the command server, the settings volume, the 2FA
-relogin or the noVNC bridge -- silently. It makes the obvious command the
-correct one. If this repo moves, compose fails loudly instead of quietly
-leaving the layer out.
-
-## Why the template is vendored
-
-`CommandServerPort` is hardcoded to `0` in the image's `config.ini.tmpl`, and
-the container generates its real `config.ini` with `envsubst` at every start.
-There is no environment variable for it, so the only way in is to supply the
-template. Three lines change, each becoming a `${...}` placeholder so this copy
-carries no policy of its own -- the values live in the override.
-
-**Mount the template, never the generated `config.ini`.** The generated file is
-where `IbLoginId`/`IbPassword` have already been substituted; a copy of *that*
-in this repo would be an IBKR password in version control.
-
-**It is CRLF.** Patch it as bytes. Reading it as text normalises the line
-endings and every one of its 960 lines then counts as changed, which both hides
-the real diff and is a change nobody asked for.
-
-The cost of vendoring is drift: when the image updates its template, ours
-silently keeps overriding it, new settings included. `check-ibc-template.sh`
-diffs the two and expects exactly the three lines -- run it after pulling a new
-image.
-
-## Applying it
-
-Order matters. A recreate means a full login, so the credentials must be good
-first -- applying this while they are being rejected only spends more
-failed-login attempts against the account.
+From the repo root (`-f ops/ib-gateway/compose.yml` on each), or from this
+directory without it:
 
 ```bash
-cd ~/ib-gateway
-docker compose up -d novnc   # the bridge only -- no depends_on, so the gateway stays as it is
-docker compose up -d         # everything, incl. the gateway: a login and one 2FA prompt
-docker compose stop          # both
+docker compose ps                    # both containers, their state and ports
+docker compose logs -f ib-gateway    # follow the gateway's log
+docker compose up -d                 # apply compose.yml / .env changes (recreates: a login)
+docker compose restart ib-gateway    # a cold restart: a login
+docker compose stop                  # stop both; `start` resumes without re-reading config
 ```
 
-Then, from anywhere:
-
-```bash
-antlia gateway                        # what antlia thinks is on the other side
-```
-
-`control: yes` is the override having taken effect. `control: no` means IBC's
-command server is not reachable, which is also what a gateway without this
-override looks like -- that is a normal answer, not a fault.
+**`docker compose config` prints every interpolated value, secrets included.**
+Grep it: `docker compose config | grep -E "TRADING_MODE|published"`.
 
 ## Live or paper
 
-One gateway, one mode, chosen in `~/ib-gateway/.env`:
-
-```
-TRADING_MODE=paper        # or live, the default when unset
-TWS_USERID=...            # the paper account's own username and password
-TWS_PASSWORD=...
-```
-
-then `docker compose up -d` -- a recreate, so a full login. The API is on
-`127.0.0.1:4002` in paper mode and `127.0.0.1:4001` in live mode; the other
-port refuses connections. Point `antlia.auth` at the paper one with
+`TRADING_MODE=live` in `.env`, then `up -d`, then log in to the live account.
+Paper is 4002 and live is 4001; the mode not running refuses connections.
+`~/.antlia/credentials.toml` points antlia at each:
 
 ```toml
 [ibkr.paper]
 port = 4002
+
+[ibkr.live]
+port = 4001
 ```
 
-and check with `antlia auth ibkr -p paper --verify`, which names the
-account (`DU...` for paper).
+The image's `TRADING_MODE=both` is not supported: it moves each instance's
+settings to `settings_live` / `settings_paper`, outside the volume mounted
+here.
 
-The image also offers `TRADING_MODE=both`. It is not supported here: in that
-mode the image moves each instance's settings to `settings_live` /
-`settings_paper`, outside the volume this override mounts, so the soft-restart
-token is lost on every recreate; and both IBC instances would render the same
-template and contend for command port 7462.
-
-## The named volume must be chowned once
+## The settings volume
 
 Docker creates a named volume owned by **root**; the image runs as
-**1000:1000**. The first start after adding `TWS_SETTINGS_PATH` therefore dies
-with
+**1000:1000**. A freshly created volume therefore makes the container die with
 
     common.sh: /home/ibgateway/settings/jts.ini: Permission denied
 
 and `restart: unless-stopped` turns that into a crash loop. The published ports
-go with it, so what you actually see is `ConnectionRefused` on 4001 -- nothing
-that mentions permissions. It fails *before* IBC attempts a login, so it costs
-no login attempts. Fix once:
+go with it, so what you actually see is `ConnectionRefused` -- nothing that
+mentions permissions. The existing volume is already fixed. If it is ever
+recreated (`docker compose down -v`, or deleted by hand -- so don't), chown it
+once:
 
 ```bash
 docker run --rm -v ib-gateway_ib-gateway-settings:/s alpine:3.20 chown -R 1000:1000 /s
@@ -216,32 +144,17 @@ Measured on compose v5.5.0, because this ate hours:
 | `PW=ab$$cd` | `ab$cd` |
 | `PW='ab$cd'` | `ab$cd` |
 
-`env_file:` interpolates too -- "move it to `env_file` and the problem goes
-away" is false, and was disproved by experiment. Trailing whitespace is eaten
-as well.
-
-The clean answer is `TWS_PASSWORD_FILE` plus a compose secret: the entrypoint
-reads the file with bash `$(<file)`, which passes through no interpolation at
-all and strips only the trailing newline (verified with a 12-character password
-containing two `$`).
-
-**`docker compose config` does not print literal values** -- it re-escapes `$`
-as `$$`. Comparing its output's length or hash against the real password gives
-a confidently wrong answer.
+`env_file:` interpolates too. Trailing whitespace is eaten as well. Pick a VNC
+password without `$`, or write each `$` as `$$`.
 
 **Shell environment beats the `.env` file.** In a terminal that has run
-`set -a; . .env; set +a`, a later `up -d` uses the stale shell values and the
-file is ignored.
+`set -a; . .env; set +a`, or `export TRADING_MODE=...`, a later `up -d` uses the
+shell's values and the file is ignored.
 
-## `ControlFrom` and `BindAddress`
+## History
 
-- **`ControlFrom` must name the docker bridge address** (here `172.18.0.1`).
-  IBC's "commands can always be sent from the same host" means the *container*,
-  and traffic arriving through a published port is seen coming from the bridge.
-  Re-derive it with
-  `docker network inspect ib-gateway_default -f '{{(index .IPAM.Config 0).Gateway}}'`
-  if the network is ever recreated; the symptom of a stale value is commands
-  being refused.
-- **`BindAddress` must stay empty.** Blank means "all local addresses"; setting
-  `127.0.0.1` binds the container's own loopback, which a published port can
-  never reach, and it fails silently.
+Until 2026-10-17 this was an override layered over a separate compose project
+in `~/ib-gateway`, joined by `COMPOSE_FILE` in that project's `.env`, with IBC
+typing a stored password and IBC's command server switched on through a
+vendored template. One file replaced all of it. IBC itself was retired
+upstream on 2026-09-01; a gateway image without it is a possible next step.
