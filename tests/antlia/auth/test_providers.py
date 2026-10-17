@@ -13,9 +13,9 @@ import pytest
 from antlia import auth
 from antlia.auth import registry
 from antlia.auth.errors import ConnectionFailed, MissingCredential
-from antlia.auth.providers.ibkr import IBKRProvider
-from antlia.auth.providers.thetadata import ThetaDataProvider
-from antlia.auth.providers.trading212 import Trading212Provider
+from antlia.auth.ibkr import IBKRProvider
+from antlia.auth.thetadata import ThetaDataProvider
+from antlia.auth.trading212 import Trading212Provider
 
 
 def cred_for(provider, profile=None, **overrides):
@@ -30,11 +30,11 @@ class TestRegistry:
 
     def test_listing_sources_imports_no_adapter(self):
         for name in list(sys.modules):
-            if name.startswith("antlia.auth.providers."):
+            if name.startswith("antlia.auth."):
                 del sys.modules[name]
         registry.reset()
         registry.sources()
-        assert not [n for n in sys.modules if n.startswith("antlia.auth.providers.")]
+        assert not [n for n in sys.modules if n.startswith("antlia.auth.")]
 
     def test_custom_source_can_be_registered(self):
         class Mine(auth.Provider):

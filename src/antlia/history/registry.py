@@ -3,9 +3,7 @@
 Same lazy "module:attr" shape as the other registries: importing
 `antlia.history` must not drag in a vendor SDK.
 
-**The listing is `chain()`, not `sources()`** -- `sources` is also this
-package's adapter subpackage, and importing an adapter binds the module over a
-function of that name. `fx` avoided that collision; this follows `fx`.
+**The listing is `chain()`**, as in `fx`: the name says the order matters.
 
 Order is insertion order and is the **default preference**, which is as much of
 open question 2 (*source precedence*) as is honestly settled: with one source
@@ -27,9 +25,9 @@ from antlia.history.base import HistorySource
 from antlia.history.store import root
 
 _BUILTIN: dict[str, str] = {
-    "thetadata": "antlia.history.sources.thetadata:ThetaDataHistory",
-    "fred": "antlia.history.sources.fred:FredHistory",
-    "ibkr": "antlia.history.sources.recorded:IBKR",
+    "thetadata": "antlia.history.thetadata:ThetaDataHistory",
+    "fred": "antlia.history.fred:FredHistory",
+    "ibkr": "antlia.history.recorded:IBKR",
 }
 
 _paths: dict[str, str] = dict(_BUILTIN)

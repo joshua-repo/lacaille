@@ -48,23 +48,23 @@ def test_auth_needs_no_third_party_package():
 
 
 def test_live_imports_auth_and_nothing_else_from_antlia():
-    # The dependency order is auth, schema <- live. live must not reach for
-    # history: recording a live answer is history's write path calling in,
-    # never live reaching out.
+    # The dependency order is auth, schema <- fx, live. live must not reach
+    # for history: recording a live answer is history's write path calling in,
+    # never live reaching out. fx is the live read `live.fx` binds.
     out = run(
         "import antlia.live, sys;"
         "print(sorted({m for m in sys.modules if m.startswith('antlia.')"
-        " and not m.startswith(('antlia.auth', 'antlia.live', 'antlia.schema'))}))"
+        " and not m.startswith(('antlia.auth', 'antlia.fx', 'antlia.live', 'antlia.schema'))}))"
     ).stdout
     assert out.strip() == "[]"
 
 
-@pytest.mark.parametrize("module", ["antlia.live", "antlia.live.fx", "antlia.fx"])
+@pytest.mark.parametrize("module", ["antlia.live", "antlia.fx"])
 def test_importing_live_pulls_in_no_vendor_sdk_and_no_engine(module):
     # The whole chain is lazy: the frankfurter fallback runs on the stdlib
     # alone, so `antlia[yfinance]` is a preference, not an install cost, and
     # the query engine and ib_insync arrive only with the read that needs
-    # them. The old `antlia.fx` name is held to the same rule.
+    # them. `antlia.fx` is held to it on its own too.
     out = run(
         "import sys;"
         "before = set(sys.modules);"

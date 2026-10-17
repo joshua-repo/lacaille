@@ -123,10 +123,10 @@ type = "forbidden"
 source_modules = [
     "antlia.auth", "antlia.fx", "antlia.gateway", "antlia.live", "antlia.schema",
     "antlia.history.base", "antlia.history.engine", "antlia.history.errors",
-    "antlia.history.ingest", "antlia.history.integrity", "antlia.history.ledger",
-    "antlia.history.listing", "antlia.history.reads", "antlia.history.registry",
-    "antlia.history.sources", "antlia.history.store", "antlia.history.types",
-    "antlia.history.writes",
+    "antlia.history.fred", "antlia.history.ingest", "antlia.history.integrity",
+    "antlia.history.ledger", "antlia.history.listing", "antlia.history.reads",
+    "antlia.history.recorded", "antlia.history.registry", "antlia.history.store",
+    "antlia.history.thetadata", "antlia.history.types", "antlia.history.writes",
 ]
 forbidden_modules = ["antlia.history.cli"]
 

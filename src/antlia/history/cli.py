@@ -182,7 +182,7 @@ def horizon(args: argparse.Namespace) -> int:
     print(f"measured  {found}   ({args.symbol})")
     if found != declared:
         print(f"\nThe window has moved. Set ANTLIA_THETADATA_EARLIEST={found}, or update")
-        print("MEASURED_EARLIEST in antlia/history/sources/thetadata.py.")
+        print("MEASURED_EARLIEST in antlia/history/thetadata.py.")
     return 0
 
 

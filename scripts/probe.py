@@ -10,7 +10,7 @@ doctor does for a single source, then breaks with the live client bound to
     >>> handle.managedAccounts()
     >>> handle.get("/api/v0/equity/account/info").json()
 
-Set breakpoints inside `antlia/auth/providers/` and they will hit on the way in;
+Set breakpoints inside `antlia/auth/` and they will hit on the way in;
 run with `justMyCode: false` to step into the vendor SDK too.
 """
 

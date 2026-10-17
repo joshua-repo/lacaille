@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from antlia.gateway.sources.ibkr import VNC_PASSWORD_ENV
+from antlia.gateway.ibkr import VNC_PASSWORD_ENV
 
 
 @pytest.fixture(autouse=True)

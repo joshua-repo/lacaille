@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from antlia import gateway
-from antlia.gateway.sources.ibkr import VNC_PASSWORD_ENV
+from antlia.gateway.ibkr import VNC_PASSWORD_ENV
 
 
 def test_no_password_configured_means_novnc_will_ask():

@@ -163,7 +163,7 @@ python scripts/probe.py ibkr --set port=4002      # override a resolved field
 
 `.vscode/launch.json` (local-only) has one configuration per source running
 exactly that, with `justMyCode: false` so breakpoints in
-`src/antlia/auth/providers/` hit and you can step into the vendor SDK.
+`src/antlia/auth/` hit and you can step into the vendor SDK.
 
 ### Adding a source
 
@@ -190,12 +190,11 @@ class MyProvider(auth.Provider):
 auth.register("mine", MyProvider())
 ```
 
-## `antlia.live.fx`
+## `antlia.fx`
 
 Foreign exchange rates, so figures in different currencies can be added up.
 A live read: the current rate table, cached for six hours so a dashboard does
-not refetch it per render. `antlia.fx` is the same module under the name it
-shipped with.
+not refetch it per render. `antlia.live.fx` is the same module.
 
 ```python
 from antlia.live import fx
@@ -211,9 +210,9 @@ pivot and every conversion crosses through it, so adding a currency is a
 one-line change.
 
 ```bash
-python -m antlia.live.fx                        # the table, cache or live
-python -m antlia.live.fx --verify               # every source, live, in turn
-python -m antlia.live.fx --convert 83289.64 GBP USD
+python -m antlia.fx                        # the table, cache or live
+python -m antlia.fx --verify               # every source, live, in turn
+python -m antlia.fx --convert 83289.64 GBP USD
 ```
 
 ### Two sources, tried in order
@@ -290,8 +289,8 @@ A slice of an option chain, quoted now, from the broker's gateway.
 from antlia import history, live
 
 snap = live.option_chain("AAPL", min_dte=25, max_dte=50, strikes=(180, 230), rights="P")
-snap.table            # antlia.schema.OPTION_QUOTE columns, one row per contract
-snap.received_at      # when the answer arrived; each row's `stamp` is the quote's own time
+snap.table  # antlia.schema.OPTION_QUOTE columns, one row per contract
+snap.received_at  # when the answer arrived; each row's `stamp` is the quote's own time
 history.record(snap)  # keep it -- reading never stores anything
 history.option_quotes("AAPL", "2026-10-01", "2026-10-31")  # every recording, read back
 ```
