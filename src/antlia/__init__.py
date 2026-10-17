@@ -7,7 +7,7 @@ and resists improving anything on the way through.
 Laid out as access by asset class: `antlia.history` (fixed, cached) and
 `antlia.live` (right now, never stored), over the asset classes declared in
 `antlia.schema`. `antlia.auth` and `antlia.gateway` are the infrastructure
-beneath them, and `antlia.fx` is the original name for `antlia.live.fx`.
+beneath them. `antlia.fx` is a live read, also reached as `antlia.live.fx`.
 """
 
 from __future__ import annotations

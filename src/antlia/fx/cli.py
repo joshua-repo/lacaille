@@ -23,8 +23,8 @@ import json
 import sys
 
 from antlia.auth.errors import AuthError
-from antlia.live.fx import cache, rates, registry
-from antlia.live.fx.types import DEFAULT_CURRENCIES, RateTable
+from antlia.fx import cache, rates, registry
+from antlia.fx.types import DEFAULT_CURRENCIES, RateTable
 
 OK, BAD = "ok", "--"
 

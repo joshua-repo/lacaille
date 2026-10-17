@@ -18,9 +18,9 @@ from types import SimpleNamespace
 import pytest
 
 from antlia import auth, live
-from antlia.live.sources import ibkr
-from antlia.live.sources.ibasync import IbAsyncClient
-from antlia.live.sources.ibkr import RAW, ChainParams, IBKRLive
+from antlia.live import ibkr
+from antlia.live.ibasync import IbAsyncClient
+from antlia.live.ibkr import RAW, ChainParams, IBKRLive
 from antlia.schema import OPTION_QUOTE
 from tests.antlia.live.test_option_chain import FAR, NEAR, FakeIB, Option, Stock
 
@@ -91,7 +91,7 @@ def test_the_adapter_module_imports_no_sdk():
         [
             sys.executable,
             "-c",
-            "import sys, antlia.live.sources.ibkr;"
+            "import sys, antlia.live.ibkr;"
             "print(sorted({'ib_async', 'ib_insync', 'ibapi'} & set(sys.modules)))",
         ],
         capture_output=True,

@@ -192,7 +192,7 @@ class IBKRLive(LiveSource):
 
     def client(self, session: Any) -> IBKRClient:
         """The one place a session becomes an `IBKRClient`. Swap the SDK here."""
-        from antlia.live.sources.ibasync import IbAsyncClient
+        from antlia.live.ibasync import IbAsyncClient
 
         return IbAsyncClient(session, self.require("ib_async"))
 

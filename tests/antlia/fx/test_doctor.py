@@ -5,9 +5,9 @@ from __future__ import annotations
 import pytest
 
 from antlia.auth.errors import ConnectionFailed
+from antlia.fx.cli import main
 from antlia.live import fx
-from antlia.live.fx.cli import main
-from tests.antlia.live.fx.fakes import FakeRates
+from tests.antlia.fx.fakes import FakeRates
 
 MARKET = {"USD": 1.0, "GBP": 0.73869, "JPY": 160.038, "HKD": 7.8391}
 
@@ -85,7 +85,7 @@ def test_stale_is_announced(capsys):
 
 
 def test_clear_cache_removes_the_file(capsys):
-    from antlia.live.fx import cache
+    from antlia.fx import cache
 
     main(["-c", "USD,GBP"])
     assert cache.path().exists()

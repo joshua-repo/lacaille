@@ -23,7 +23,7 @@ from collections.abc import Sequence
 from types import ModuleType
 from typing import Any
 
-from antlia.live.sources.ibkr import CONTRACT_FIELDS, GREEK_FIELDS, TICKER_FIELDS, ChainParams, Leg
+from antlia.live.ibkr import CONTRACT_FIELDS, GREEK_FIELDS, TICKER_FIELDS, ChainParams, Leg
 
 #: IBKR's market-data types.
 REALTIME, DELAYED = 1, 3

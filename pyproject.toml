@@ -146,26 +146,27 @@ forbidden_modules = ["pictor.cli"]
 name = "nothing in antlia imports its CLI"
 type = "forbidden"
 source_modules = [
-    "antlia.schema", "antlia.fx",
+    "antlia.schema",
     "antlia.auth", "antlia.auth.base", "antlia.auth.credentials", "antlia.auth.errors",
-    "antlia.auth.pool", "antlia.auth.providers", "antlia.auth.ratelimit",
-    "antlia.auth.registry", "antlia.auth.spec",
+    "antlia.auth.fred", "antlia.auth.ibkr", "antlia.auth.pool", "antlia.auth.ratelimit",
+    "antlia.auth.registry", "antlia.auth.spec", "antlia.auth.thetadata", "antlia.auth.trading212",
+    "antlia.auth.yfinance",
     "antlia.gateway", "antlia.gateway.base", "antlia.gateway.control", "antlia.gateway.errors",
-    "antlia.gateway.ibc", "antlia.gateway.reads", "antlia.gateway.registry",
-    "antlia.gateway.sources", "antlia.gateway.types",
-    "antlia.live", "antlia.live.base", "antlia.live.engine", "antlia.live.reads",
-    "antlia.live.registry", "antlia.live.sources", "antlia.live.types",
-    "antlia.live.fx", "antlia.live.fx.base", "antlia.live.fx.cache", "antlia.live.fx.errors",
-    "antlia.live.fx.registry", "antlia.live.fx.sources", "antlia.live.fx.types",
-    "antlia.history.base", "antlia.history.engine", "antlia.history.errors",
-    "antlia.history.ingest", "antlia.history.integrity", "antlia.history.ledger",
-    "antlia.history.listing", "antlia.history.reads", "antlia.history.registry",
-    "antlia.history.sources", "antlia.history.store", "antlia.history.types",
-    "antlia.history.writes",
+    "antlia.gateway.ibc", "antlia.gateway.ibkr", "antlia.gateway.reads", "antlia.gateway.registry",
+    "antlia.gateway.types",
+    "antlia.live", "antlia.live.base", "antlia.live.engine", "antlia.live.ibasync",
+    "antlia.live.ibkr", "antlia.live.reads", "antlia.live.registry", "antlia.live.types",
+    "antlia.fx", "antlia.fx.base", "antlia.fx.cache", "antlia.fx.errors", "antlia.fx.frankfurter",
+    "antlia.fx.registry", "antlia.fx.types", "antlia.fx.yfinance",
+    "antlia.history", "antlia.history.attempts", "antlia.history.base", "antlia.history.engine",
+    "antlia.history.errors", "antlia.history.fred", "antlia.history.ingest",
+    "antlia.history.integrity", "antlia.history.ledger", "antlia.history.listing",
+    "antlia.history.reads", "antlia.history.recorded", "antlia.history.recorder",
+    "antlia.history.registry", "antlia.history.store", "antlia.history.thetadata",
+    "antlia.history.types", "antlia.history.writes",
 ]
 forbidden_modules = [
-    "antlia.cli", "antlia.auth.cli", "antlia.gateway.cli", "antlia.live.fx.cli",
-    "antlia.history.cli",
+    "antlia.cli", "antlia.auth.cli", "antlia.gateway.cli", "antlia.fx.cli", "antlia.history.cli",
 ]
 
 [tool.ruff]

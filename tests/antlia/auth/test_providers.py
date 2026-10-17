@@ -13,9 +13,9 @@ import pytest
 from antlia import auth
 from antlia.auth import registry
 from antlia.auth.errors import ConnectionFailed, MissingCredential
-from antlia.auth.providers.ibkr import IBKRProvider
-from antlia.auth.providers.thetadata import ThetaDataProvider
-from antlia.auth.providers.trading212 import Trading212Provider
+from antlia.auth.ibkr import IBKRProvider
+from antlia.auth.thetadata import ThetaDataProvider
+from antlia.auth.trading212 import Trading212Provider
 
 
 def cred_for(provider, profile=None, **overrides):
@@ -29,12 +29,16 @@ class TestRegistry:
         assert set(registry.sources()) >= {"ibkr", "thetadata", "trading212", "yfinance"}
 
     def test_listing_sources_imports_no_adapter(self):
-        for name in list(sys.modules):
-            if name.startswith("antlia.auth.providers."):
-                del sys.modules[name]
+        # The adapters only: purging all of `antlia.auth.` would re-import
+        # `errors` later and split `ConnectionFailed` into two classes.
+        adapters = {
+            f"antlia.auth.{n}" for n in ("fred", "ibkr", "thetadata", "trading212", "yfinance")
+        }
+        for name in adapters:
+            sys.modules.pop(name, None)
         registry.reset()
         registry.sources()
-        assert not [n for n in sys.modules if n.startswith("antlia.auth.providers.")]
+        assert not adapters & set(sys.modules)
 
     def test_custom_source_can_be_registered(self):
         class Mine(auth.Provider):
@@ -370,7 +374,7 @@ class TestProfileMatchesAccount:
         [("paper", ["U16200976"]), ("paper", ["DU1", "U2"]), ("live", ["DUH377651"])],
     )
     def test_a_mismatch_is_refused(self, profile, accounts):
-        from antlia.auth.providers.ibkr import check_profile
+        from antlia.auth.ibkr import check_profile
 
         with pytest.raises(ConnectionFailed, match="check the port"):
             check_profile(profile, accounts, 4002)
@@ -380,7 +384,7 @@ class TestProfileMatchesAccount:
         [("paper", ["DUH377651"]), ("live", ["U16200976"]), ("gw", ["U1"]), ("paper", [])],
     )
     def test_a_match_or_an_unchecked_profile_passes(self, profile, accounts):
-        from antlia.auth.providers.ibkr import check_profile
+        from antlia.auth.ibkr import check_profile
 
         check_profile(profile, accounts, 4002)
 

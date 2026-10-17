@@ -7,7 +7,7 @@
     antlia <area> -h                                         # that area's own flags
 
 This file is a dispatcher and nothing else. Each area keeps its CLI beside the
-code it drives (`auth/cli.py`, `gateway/cli.py`, `live/fx/cli.py`,
+code it drives (`auth/cli.py`, `gateway/cli.py`, `fx/cli.py`,
 `history/cli.py`), and is handed the rest of the line unchanged -- no flag is
 added or interpreted here, so an area's `-h` is the whole truth about it.
 
@@ -36,7 +36,7 @@ class Area:
 AREAS: tuple[Area, ...] = (
     Area("auth", "antlia.auth.cli", "what resolves, what connects, what verifies"),
     Area("gateway", "antlia.gateway.cli", "where a source's gateway is; restart it"),
-    Area("fx", "antlia.live.fx.cli", "the FX rate table, and whether each source answers"),
+    Area("fx", "antlia.fx.cli", "the FX rate table, and whether each source answers"),
     Area("history", "antlia.history.cli", "the store: doctor, plan, fill, coverage, check"),
 )
 

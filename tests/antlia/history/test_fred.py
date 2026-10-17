@@ -15,10 +15,10 @@ import pytest
 
 from antlia import auth, history
 from antlia.auth.errors import ConnectionFailed
-from antlia.auth.providers.fred import FredHandle
+from antlia.auth.fred import FredHandle
 from antlia.history import registry, store
 from antlia.history.errors import IngestFailed
-from antlia.history.sources.fred import FredHistory, published_through
+from antlia.history.fred import FredHistory, published_through
 from antlia.history.types import RATE_DAILY
 
 D = dt.date

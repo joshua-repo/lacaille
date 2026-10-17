@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 from antlia.gateway.cli import main
-from antlia.gateway.sources.ibkr import VNC_PASSWORD_ENV
+from antlia.gateway.ibkr import VNC_PASSWORD_ENV
 from tests.antlia.gateway.fakes import FakeIBC, dead_port
 
 

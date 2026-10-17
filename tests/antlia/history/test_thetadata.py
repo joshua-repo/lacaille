@@ -16,7 +16,7 @@ import pytest
 
 from antlia.history import store
 from antlia.history.errors import IngestFailed, NotEntitled
-from antlia.history.sources.thetadata import (
+from antlia.history.thetadata import (
     MAX_SPAN_DAYS,
     MAX_WORKERS,
     ThetaDataHistory,

@@ -15,11 +15,11 @@ from antlia.auth.errors import UnknownSource
 
 #: Built-in sources, as "module:attribute" so nothing imports at startup.
 _BUILTIN: dict[str, str] = {
-    "fred": "antlia.auth.providers.fred:FredProvider",
-    "ibkr": "antlia.auth.providers.ibkr:IBKRProvider",
-    "thetadata": "antlia.auth.providers.thetadata:ThetaDataProvider",
-    "trading212": "antlia.auth.providers.trading212:Trading212Provider",
-    "yfinance": "antlia.auth.providers.yfinance:YFinanceProvider",
+    "fred": "antlia.auth.fred:FredProvider",
+    "ibkr": "antlia.auth.ibkr:IBKRProvider",
+    "thetadata": "antlia.auth.thetadata:ThetaDataProvider",
+    "trading212": "antlia.auth.trading212:Trading212Provider",
+    "yfinance": "antlia.auth.yfinance:YFinanceProvider",
 }
 
 _paths: dict[str, str] = dict(_BUILTIN)

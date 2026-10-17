@@ -12,8 +12,8 @@ import pytest
 
 from antlia import auth, history, live
 from antlia.history.errors import IngestFailed
-from antlia.live.sources import ibkr
-from antlia.live.sources.ibkr import IBKRLive, choose_expirations
+from antlia.live import ibkr
+from antlia.live.ibkr import IBKRLive, choose_expirations
 from antlia.schema import OPTION_QUOTE
 
 NY = ZoneInfo("America/New_York")

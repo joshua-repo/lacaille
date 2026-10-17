@@ -14,10 +14,7 @@ cases are separated by asking `auth`'s registry: a name it knows has simply no
 gateway, and a name nobody knows is `UnknownSource`. That check costs a dict
 lookup and imports nothing -- `auth.registry.sources()` does not load adapters.
 
-The listing is `gateways()`, not `sources()`, because `sources` is also this
-package's adapter subpackage: importing an adapter binds the module onto the
-package and would clobber a function of that name. `fx`
-sidesteps it with `chain()`; here the honest name happens to be the safe one.
+The listing is `gateways()`, not `sources()`: only some sources have one.
 """
 
 from __future__ import annotations
@@ -31,7 +28,7 @@ from antlia.gateway.base import Gateway
 
 #: Built-in gateways, as "module:attribute" so nothing imports at startup.
 _BUILTIN: dict[str, str] = {
-    "ibkr": "antlia.gateway.sources.ibkr:IBKRGateway",
+    "ibkr": "antlia.gateway.ibkr:IBKRGateway",
 }
 
 _paths: dict[str, str] = dict(_BUILTIN)

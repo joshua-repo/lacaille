@@ -15,7 +15,7 @@ from antlia.auth.errors import UnknownSource
 from antlia.live.base import LiveSource
 
 _BUILTIN: dict[str, str] = {
-    "ibkr": "antlia.live.sources.ibkr:IBKRLive",
+    "ibkr": "antlia.live.ibkr:IBKRLive",
 }
 
 _paths: dict[str, str] = dict(_BUILTIN)
@@ -41,7 +41,7 @@ def unregister(name: str) -> None:
 
 
 def known() -> list[str]:
-    """Every registered live source. Not `sources()`: that is the subpackage."""
+    """Every registered live source."""
     with _lock:
         return sorted(_paths)
 

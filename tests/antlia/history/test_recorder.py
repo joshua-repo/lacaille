@@ -11,7 +11,7 @@ import pytest
 from antlia import auth, history, live
 from antlia.history import attempts, recorder
 from antlia.history.cli import main
-from antlia.live.sources.ibkr import IBKRLive
+from antlia.live.ibkr import IBKRLive
 from tests.antlia.live.test_option_chain import FakeIB, Option, Stock
 
 UTC = dt.UTC
